@@ -9,12 +9,14 @@ import { setCurrentClassData, getCurrentClassData } from "@/lib/tempStore";
 import { DEFAULT_ROLE_LABELS, SCHOOL_ROLE_LABELS } from "@/lib/roleLabels";
 import { generateCourseCode } from "@/lib/courseCode";
 import { parseParticipantCsv, type ParsedParticipant } from "@/lib/parseParticipantCsv";
+import { createCourseDocument } from "@/lib/firestore/courses";
+import { saveParticipantsAndLessons } from "@/lib/firestore/courseSetup";
 import type { ClassSettings, RoleLabels } from "@/types";
 
 type PresetType = "general" | "school" | "custom";
 type RosterMethod = "auto" | "csv";
 
-// 수업/강의 설정 폼 컴포넌트 (STEP 16 범용화, STEP 18 명단 관리)
+// 수업/강의 설정 폼 컴포넌트 (STEP 16 범용화, STEP 18 명단 관리, STEP 21 & 22 Firestore 연동)
 export default function ClassSetupForm() {
   const router = useRouter();
 
@@ -26,6 +28,9 @@ export default function ClassSetupForm() {
   const [instructorLabel, setInstructorLabel] = useState<string>("강사");
   const [participantLabel, setParticipantLabel] = useState<string>("수강생");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [firebaseError, setFirebaseError] = useState<string | null>(null);
+
+
 
   // 1-1. 수강생 명단 준비 방식 (자동 생성 vs CSV 업로드, STEP 18)
   const [rosterMethod, setRosterMethod] = useState<RosterMethod>("auto");
@@ -151,8 +156,8 @@ export default function ClassSetupForm() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // 폼 제출 처리 핸들러
-  const handleSubmit = (e: React.FormEvent) => {
+  // 폼 제출 처리 핸들러 (STEP 21: Firestore courses 문서 생성 연동)
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // 입력값 유효성 검증
@@ -161,7 +166,19 @@ export default function ClassSetupForm() {
       return;
     }
 
+    // 기존 브라우저 강의 데이터가 있는 경우 교체 확인 (요구사항 #11)
+    const existingData = getCurrentClassData();
+    if (existingData) {
+      const confirmed = window.confirm(
+        "현재 브라우저에 저장된 강의 데이터가 있습니다.\n\n새 강의를 만들면 현재 브라우저의 강의 데이터가 교체됩니다.\n(Firestore의 기존 문서는 삭제되지 않고 안전하게 유지됩니다)\n\n계속하시겠습니까?"
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
     setIsSubmitting(true);
+    setFirebaseError(null);
 
     const roleLabels: RoleLabels = {
       instructor: instructorLabel.trim() || DEFAULT_ROLE_LABELS.instructor,
@@ -169,6 +186,27 @@ export default function ClassSetupForm() {
     };
 
     const finalStudentCount = rosterMethod === "csv" ? csvParticipants.length : Number(studentCount);
+    const courseCode = generateCourseCode();
+
+    // 1. Cloud Firestore의 courses 컬렉션에 새 Course 문서 1개 생성 (요구사항 #1, #2, #5, #6)
+    let courseId: string | undefined = undefined;
+    try {
+      courseId = await createCourseDocument({
+        title: className.trim(),
+        courseCode,
+        roleLabels,
+        studentCount: finalStudentCount,
+        lessonCount: Number(lessonCount),
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[ClassSetupForm] Firestore 저장 실패:", message);
+      setFirebaseError(
+        `Firestore에 강의 문서를 저장하지 못했습니다. Firebase 연결 상태를 확인 후 다시 시도해 주세요.\n(${message})`
+      );
+      setIsSubmitting(false);
+      return; // 반쪽짜리 저장을 방지하기 위해 로컬 저장을 중단하고 리턴
+    }
 
     const newSettings: ClassSettings = {
       className: className.trim(),
@@ -176,19 +214,36 @@ export default function ClassSetupForm() {
       lessonCount: Number(lessonCount),
       createdAt: new Date().toISOString(),
       roleLabels,
-      courseCode: generateCourseCode(),
+      courseCode,
+      courseId, // 생성된 Firestore document ID 보존 (요구사항 #1, #3)
     };
 
-    // 1. lib/createClassData를 통해 학생(수강생), 차시, Progress 데이터 동적 생성
-    // (CSV 명단이 있을 경우 해당 명단으로 생성)
+    // 2. lib/createClassData를 통해 학생(수강생), 차시, Progress 데이터 동적 생성
     const customStudents = rosterMethod === "csv" ? csvParticipants : undefined;
     const classFlowData = createClassData(newSettings, customStudents);
 
-    // 2. 임시 인메모리 스토어 및 localStorage에 보관
+    // 3. Firestore participants 및 lessons 서브컬렉션 일괄 저장 (STEP 22, 요구사항 #1, #2, #3, #9, #13)
+    try {
+      await saveParticipantsAndLessons(
+        courseId,
+        classFlowData.students,
+        classFlowData.lessons
+      );
+    } catch (subErr: unknown) {
+      const subMessage = subErr instanceof Error ? subErr.message : String(subErr);
+      console.error("[ClassSetupForm] 서브컬렉션 저장 실패:", subMessage);
+      setFirebaseError(
+        `Firestore에 수강생 및 차시 정보를 저장하지 못했습니다.\n(${subMessage})\n\n네트워크를 확인하신 후 다시 시도해 주세요.`
+      );
+      setIsSubmitting(false);
+      return; // 반쪽짜리 로컬 저장을 방지하기 위해 중단
+    }
+
+    // 4. 임시 인메모리 스토어 및 localStorage에 보관 (요구사항 #1, #4, #20)
     setCurrentClassData(classFlowData);
     setSubmittedSettings(newSettings);
 
-    // 3. 생성 결과 확인 화면(/teacher)으로 이동
+    // 5. 생성 결과 확인 화면(/teacher)으로 이동
     router.push("/teacher");
   };
 
@@ -613,14 +668,28 @@ export default function ClassSetupForm() {
           )}
         </div>
 
-        {/* 제출 버튼 */}
+        {/* Firebase 저장 오류 안내 박스 (요구사항 #9) */}
+        {firebaseError && (
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm leading-relaxed whitespace-pre-line">
+            <div className="flex items-center gap-1.5 font-bold mb-1">
+              <span>⚠️</span>
+              <span>Firestore 저장 실패</span>
+            </div>
+            <p className="text-rose-700">{firebaseError}</p>
+            <p className="text-[11px] text-rose-500 mt-2 font-medium">
+              💡 네트워크 연결 상태 또는 .env.local 설정을 점검하신 뒤 다시 시도해 주세요.
+            </p>
+          </div>
+        )}
+
+        {/* 제출 버튼 (요구사항 #10 중복 클릭 방지 및 로딩 상태) */}
         <div className="pt-2">
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full inline-flex items-center justify-center px-6 py-4 rounded-xl text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.99] disabled:bg-blue-300 disabled:cursor-not-allowed transition-all shadow-md shadow-blue-500/20"
+            className="w-full inline-flex items-center justify-center px-6 py-4 rounded-xl text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.99] disabled:bg-blue-300 disabled:cursor-not-allowed transition-all shadow-md shadow-blue-500/20 cursor-pointer"
           >
-            {isSubmitting ? "데이터 생성 중..." : "강의 만들기"}
+            {isSubmitting ? "강의 만드는 중..." : "강의 만들기"}
           </button>
         </div>
       </form>

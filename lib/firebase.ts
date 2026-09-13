@@ -1,4 +1,5 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
+import { getFirestore, type Firestore } from "firebase/firestore";
 
 /**
  * Firebase Web SDK 설정 인터페이스
@@ -70,3 +71,33 @@ function getFirebaseAppInstance(): FirebaseApp | null {
 }
 
 export const firebaseApp = getFirebaseAppInstance();
+
+/**
+ * Cloud Firestore 인스턴스 초기화 (STEP 20)
+ * - firebaseApp이 준비되어 있을 때만 getFirestore(firebaseApp)를 호출합니다.
+ * - firebaseApp이 null이면 Firestore 인스턴스를 초기화하지 않고 null을 안전하게 반환합니다.
+ */
+function getFirestoreInstance(): Firestore | null {
+  if (!firebaseApp) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn(
+        "[ClassFlow Firestore] Firebase App is not initialized. Firestore instance will not be created."
+      );
+    }
+    return null;
+  }
+
+  try {
+    const firestore = getFirestore(firebaseApp);
+    if (process.env.NODE_ENV === "development") {
+      console.log("[ClassFlow Firestore] Initialized successfully.");
+    }
+    return firestore;
+  } catch (error) {
+    console.error("[ClassFlow Firestore] Failed to initialize Firestore:", error);
+    return null;
+  }
+}
+
+export const db = getFirestoreInstance();
+

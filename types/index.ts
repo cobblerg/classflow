@@ -14,6 +14,7 @@ export type ClassSettings = {
   createdAt: string;        // 생성 일시 (ISO 문자열)
   roleLabels?: RoleLabels;  // 화면 표시용 역할 명칭 설정 (미존재 시 기본값 강사/수강생)
   courseCode?: string;      // 수강생 접속용 6자리 강의 코드 (STEP 17, 데이터 생성/로드 시 자동 채워짐)
+  courseId?: string;        // Firestore courses 컬렉션의 문서 ID (STEP 21, Firestore 연동 시 발급)
 };
 
 // 2. 학생 정보

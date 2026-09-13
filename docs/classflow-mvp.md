@@ -1686,4 +1686,49 @@ Supabase 여부 결정
 > [!WARNING]
 > 현재 ClassFlow MVP는 브라우저 localStorage 기반 프로토타입이며, 실제 개인정보 보호 및 암호화를 위한 보안 구조가 적용되지 않은 테스트 환경입니다. 실제 수업/연수 테스트 시에는 가명(예: `수강생01`, `김테스트`)을 사용할 것을 권장합니다.
 
+---
+
+# PART 12. STEP 19 & 20: Firebase 연동 및 Cloud Firestore 데이터 모델
+
+## 1. 개요
+ClassFlow를 향후 실제 다중 기기 환경에서 교사와 수강생이 실시간으로 상호작용할 수 있도록 백엔드로 **Firebase (Cloud Firestore)**를 도입하였습니다.
+
+## 2. STEP 19 — Firebase 프로젝트 연결 및 Web SDK 초기화
+- `firebase` Web SDK 패키지 설치
+- `.env.local` 환경변수를 통한 안전한 설정 관리 (`.gitignore` 등록으로 Git 커밋 방지)
+- `lib/firebase.ts`: Hot Reload 중복 초기화 방지 및 환경변수 누락 시의 안전 가드 적용
+- 설정 가이드 문서 작성: `docs/firebase-setup.md`
+
+## 3. STEP 20 — Cloud Firestore 생성 + 데이터 모델 설계 + 테스트 문서 저장
+- **데이터베이스 생성**: Cloud Firestore `(default)` 데이터베이스 생성
+- **데이터 모델 설계서**: `docs/firestore-data-model.md`
+  - 계층 구조: 최상위 `courses/{courseId}` 및 하위 서브컬렉션(`participants`, `lessons`, `progress`, `helpRequests`, `feedback`, `submissions`)
+  - ID 전략: 상태 및 피드백에 결정적 ID(`${participantId}_${lessonId}`) 적용하여 $O(1)$ 즉시 갱신
+  - 고유성 전략: 향후 STEP 22에서 `courseCodes/{code}` 전용 매핑 컬렉션을 이용한 초고속 조회 및 중복 방지
+  - 시간 전략: `serverTimestamp()` 사용
+- **Firestore 초기화**: `lib/firebase.ts` 및 `lib/firestore.ts`에 `firebaseApp === null` 방어 처리와 함께 `db` 인스턴스 export
+## 4. STEP 21 — 실제 강의 생성 시 Firestore Course 문서 저장
+- **/setup 강의 생성 연동**:
+  - 강사가 `/setup`에서 실제 강의를 생성하면 Firestore `courses` 컬렉션에 새 문서 1개 자동 생성
+  - 저장 필드: `title`, `courseCode`, `roleLabels`, `studentCount`, `lessonCount`, `createdAt(serverTimestamp)`, `updatedAt(serverTimestamp)`, `instructorId: null`
+  - 발급된 Firestore `courseId`를 `ClassSettings`에 보존하고 브라우저 `localStorage`에 영속화
+- **안전성 및 예외 처리**:
+  - 중복 클릭 방지: 저장 중 버튼 비활성화 및 `강의 만드는 중...` 텍스트 표시
+  - 기존 데이터 보호: 기존 브라우저 데이터가 존재할 경우 사용자 교체 확인 다이얼로그 유지
+  - Firestore 저장 실패 시 로컬 저장을 중단하고 명확한 오류 안내를 표시하여 반쪽짜리 저장 방지
+- **기존 기능 무결성**:
+  - `participants`, `lessons`, `progress` 등의 하위 문서는 아직 생성하지 않으며, `/join` 및 대시보드 기능은 100% `localStorage` 기반으로 온전히 동작함
+
+## 5. STEP 22 — Firestore participants + lessons 저장
+- **서브컬렉션 일괄 저장 (`lib/firestore/courseSetup.ts`)**:
+  - 강의 생성 시 `writeBatch`를 통해 `participants`와 `lessons` 서브컬렉션을 단일 배치로 안전하게 일괄 저장
+  - `participants` 문서 ID: 기존 `student.id`(`student-01` 등) 그대로 사용 (이름, 번호, 타임스탬프)
+  - `lessons` 문서 ID: 기존 `lesson.id`(`lesson-01` 등) 그대로 사용 (제목, 목표, 설명, 공개 여부, 타임스탬프)
+- **기존 기능 무결성 및 격리**:
+  - `progress`, `helpRequests`, `feedback`, `submissions`는 이번 STEP에서 저장하지 않음
+  - `/join` 및 모든 사용자 UI는 계속 100% `localStorage` 기반으로 동작
+
+
+
+
 

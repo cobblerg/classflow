@@ -116,8 +116,11 @@ export default function DashboardSummary({ settings }: DashboardSummaryProps) {
 
         {/* 강의 코드 및 인원/차시 규모 컨트롤 바 */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          {/* 강의 코드 박스 (프로젝터 가독성 고려, STEP 17) */}
-          <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-blue-50/80 border border-blue-200 shadow-2xs">
+          {/* 강의 코드 박스 (프로젝터 가독성 고려, STEP 17 / STEP 21 courseId 연결 확인) */}
+          <div
+            className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-blue-50/80 border border-blue-200 shadow-2xs"
+            title={settings.courseId ? `Firestore Course ID: ${settings.courseId}` : "브라우저 로컬 모드"}
+          >
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider leading-tight">
                 강의 코드
