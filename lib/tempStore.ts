@@ -1,4 +1,4 @@
-import type { ClassFlowData } from "@/types";
+import type { ClassFlowData, ProgressStatus } from "@/types";
 
 // 모듈 스코프 메모리 저장소 (STEP 2 임시용, 새로고침 시 초기화됨)
 let inMemoryClassData: ClassFlowData | null = null;
@@ -16,3 +16,51 @@ export function setCurrentClassData(data: ClassFlowData): void {
 export function getCurrentClassData(): ClassFlowData | null {
   return inMemoryClassData;
 }
+
+/**
+ * 특정 학생과 차시의 진행 상태(ProgressStatus)를 업데이트하는 함수
+ * (시작 전: not_started, 진행 중: in_progress, 완료: completed)
+ */
+export function updateProgressStatus(
+  studentId: string,
+  lessonId: string,
+  newStatus: ProgressStatus
+): ClassFlowData | null {
+  if (!inMemoryClassData) return null;
+
+  const now = new Date().toISOString();
+  let matched = false;
+
+  // 기존 progress 목록을 순회하며 대상 학생-차시 상태 업데이트
+  const updatedProgressList = inMemoryClassData.progress.map((p) => {
+    if (p.studentId === studentId && p.lessonId === lessonId) {
+      matched = true;
+      return {
+        ...p,
+        status: newStatus,
+        updatedAt: now,
+      };
+    }
+    return p;
+  });
+
+  // 만약 매칭되는 progress 객체가 없었다면 새로 생성하여 추가
+  if (!matched) {
+    updatedProgressList.push({
+      studentId,
+      lessonId,
+      status: newStatus,
+      understanding: null,
+      updatedAt: now,
+    });
+  }
+
+  // 불변성(원본을 직접 수정하지 않고 새 객체로 교체하는 원칙)을 지키며 데이터 갱신
+  inMemoryClassData = {
+    ...inMemoryClassData,
+    progress: updatedProgressList,
+  };
+
+  return inMemoryClassData;
+}
+

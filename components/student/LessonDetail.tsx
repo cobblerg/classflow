@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getCurrentClassData, setCurrentClassData } from "@/lib/tempStore";
+import { getCurrentClassData, setCurrentClassData, updateProgressStatus } from "@/lib/tempStore";
 import { createClassData } from "@/lib/createClassData";
-import type { ClassFlowData, Student, Lesson, Progress } from "@/types";
+import type { ClassFlowData, Student, Lesson, Progress, ProgressStatus } from "@/types";
+import ProgressStatusSelector from "./ProgressStatusSelector";
 
 interface LessonDetailProps {
   studentId: string; // 학생 고유 ID
@@ -18,6 +19,8 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [errorType, setErrorType] = useState<"student_not_found" | "lesson_not_found" | null>(null);
+  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+
 
   useEffect(() => {
     // 1. 메모리 저장소에서 현재 수업 데이터 가져오기
@@ -135,44 +138,33 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
 
   if (!student || !lesson) return null;
 
-  // 8. 현재 진행 상태 라벨 및 아이콘 계산 (조회 전용)
-  const getProgressDisplay = () => {
-    if (progress?.understanding === "need_help") {
-      return {
-        icon: "🔴",
-        label: "도움 필요",
-        desc: "선생님께 도움을 요청한 상태입니다.",
-        badgeStyle: "bg-red-50 text-red-700 border-red-200",
-      };
-    }
-    const status = progress?.status || "not_started";
-    switch (status) {
-      case "completed":
-        return {
-          icon: "🟢",
-          label: "완료",
-          desc: "과제를 성공적으로 마쳤습니다.",
-          badgeStyle: "bg-emerald-50 text-emerald-700 border-emerald-200",
-        };
-      case "in_progress":
-        return {
-          icon: "🟡",
-          label: "진행 중",
-          desc: "현재 과제를 수행하고 있습니다.",
-          badgeStyle: "bg-amber-50 text-amber-700 border-amber-200",
-        };
-      case "not_started":
-      default:
-        return {
-          icon: "⚪",
-          label: "시작 전",
-          desc: "아직 과제를 시작하지 않았습니다.",
-          badgeStyle: "bg-slate-100 text-slate-700 border-slate-200",
-        };
-    }
-  };
+  // 8. 학생 진행 상태 변경 핸들러 (STEP 6)
+  const handleStatusChange = (newStatus: ProgressStatus) => {
+    if (!student || !lesson) return;
 
-  const currentStatus = getProgressDisplay();
+    // lib/tempStore의 updateProgressStatus 호출하여 공유 메모리 데이터 갱신
+    const updatedData = updateProgressStatus(student.id, lesson.id, newStatus);
+    if (updatedData) {
+      setData(updatedData);
+      const updatedProgress = updatedData.progress.find(
+        (p) => p.studentId === student.id && p.lessonId === lesson.id
+      );
+      if (updatedProgress) {
+        setProgress(updatedProgress);
+      }
+    }
+
+    const labelMap: Record<ProgressStatus, string> = {
+      not_started: "시작 전",
+      in_progress: "진행 중",
+      completed: "완료",
+    };
+
+    setFeedbackMsg(`진행 상태가 '${labelMap[newStatus]}'(으)로 변경되었습니다.`);
+    setTimeout(() => {
+      setFeedbackMsg(null);
+    }, 2500);
+  };
 
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col pb-12">
@@ -235,31 +227,32 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
         )}
       </section>
 
-      {/* 나의 현재 학습 상태 (조회 전용) */}
+      {/* 나의 진행 상태 변경 섹션 (STEP 6) */}
       <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm mb-6">
-        <h2 className="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
-          <span className="text-xl">📌</span>
-          <span>나의 현재 학습 상태</span>
-        </h2>
-
-        <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-          <span className="text-2xl" role="img" aria-label={currentStatus.label}>
-            {currentStatus.icon}
-          </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${currentStatus.badgeStyle}`}>
-                {currentStatus.label}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              {currentStatus.desc}
-            </p>
-          </div>
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span className="text-xl">📌</span>
+            <span>나의 진행 상태</span>
+          </h2>
+          <span className="text-xs text-slate-400">자유롭게 변경 가능</span>
         </div>
 
-        <p className="mt-3 text-xs text-slate-400 text-center">
-          ※ 현재는 학습 상태 조회 모드입니다. 상태 변경 및 과제 제출은 다음 단계에서 제공됩니다.
+        {/* 3가지 상태 선택 버튼 컴포넌트 */}
+        <ProgressStatusSelector
+          currentStatus={progress?.status || "not_started"}
+          onStatusChange={handleStatusChange}
+        />
+
+        {/* 상태 변경 성공 피드백 알림 토스트 */}
+        {feedbackMsg && (
+          <div className="mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800 flex items-center gap-1.5 animate-fadeIn">
+            <span>✓</span>
+            <span>{feedbackMsg}</span>
+          </div>
+        )}
+
+        <p className="mt-4 text-xs text-slate-400 leading-relaxed">
+          💡 상태를 변경하면 대시보드와 선생님 화면에 즉시 반영됩니다. (현재는 테스트 모드로 새로고침 시 초기화될 수 있습니다)
         </p>
       </section>
 
