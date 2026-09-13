@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClassData } from "@/lib/createClassData";
-import { setCurrentClassData } from "@/lib/tempStore";
+import { createDemoClassData } from "@/data/demoData";
+import { setCurrentClassData, getCurrentClassData } from "@/lib/tempStore";
 import type { ClassSettings } from "@/types";
 
 // 수업 설정 폼 컴포넌트
@@ -93,6 +94,21 @@ export default function ClassSetupForm() {
     router.push("/teacher");
   };
 
+  // 데모 학급 시작 핸들러 (STEP 13, 기존 데이터 보호 확인 포함)
+  const handleStartDemo = () => {
+    const existingData = getCurrentClassData();
+    if (existingData) {
+      const confirmed = window.confirm(
+        "현재 저장된 학급 데이터가 있습니다.\n\n데모 학급을 시작하면 현재 데이터가 데모 데이터로 교체됩니다.\n\n계속하시겠습니까?"
+      );
+      if (!confirmed) return;
+    }
+
+    const demoData = createDemoClassData();
+    setCurrentClassData(demoData);
+    router.push("/teacher");
+  };
+
   return (
     <div className="w-full max-w-xl bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-10">
       {/* 상단 네비게이션 및 헤더 */}
@@ -113,7 +129,6 @@ export default function ClassSetupForm() {
         </span>
       </div>
 
-
       {/* MVP 로컬 브라우저 저장 및 개인정보 보호 안내 배너 (STEP 8) */}
       <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm leading-relaxed mb-6">
         <div className="flex items-center gap-1.5 font-bold mb-1">
@@ -123,6 +138,33 @@ export default function ClassSetupForm() {
         <p className="text-amber-800">
           현재 데이터는 이 브라우저에만 저장됩니다. 실제 학생 개인정보 대신 테스트용 이름을 사용하세요.
         </p>
+      </div>
+
+      {/* 🎓 데모 학급으로 시작하기 빠른 실행 카드 (STEP 13) */}
+      <div className="p-5 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-indigo-950 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+        <div>
+          <div className="flex items-center gap-1.5 font-bold text-sm text-indigo-900 mb-1">
+            <span>🎓</span>
+            <span>데모 학급으로 시작하기</span>
+          </div>
+          <p className="text-xs text-indigo-700 leading-relaxed">
+            학생들의 다양한 학습 상태(진행도, 이해도, 도움 요청 등)가 미리 입력된 테스트용 학급(20명×10차시)을 바로 체험할 수 있습니다.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleStartDemo}
+          className="shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-sm shadow-indigo-500/20 text-center"
+        >
+          데모 시작 →
+        </button>
+      </div>
+
+      <div className="relative flex py-1 items-center mb-6">
+        <div className="flex-grow border-t border-slate-200"></div>
+        <span className="flex-shrink mx-4 text-xs font-semibold text-slate-400">또는 직접 새 학급 설정</span>
+        <div className="flex-grow border-t border-slate-200"></div>
       </div>
 
       <p className="text-sm text-slate-600 mb-6 leading-relaxed">
