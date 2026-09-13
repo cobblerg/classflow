@@ -39,15 +39,21 @@ export default function HomePage() {
             새 수업 만들기
           </Link>
 
-          {/* 저장된 테스트 수업 열기 (현재는 비활성화된 상태로 표시하여 추후 기능 안내) */}
-          <button
-            type="button"
-            disabled
-            className="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-medium text-slate-400 bg-slate-100 cursor-not-allowed border border-slate-200/60"
-            title="저장된 수업 데이터가 아직 없습니다"
+          {/* 학생 화면 이동 버튼 */}
+          <Link
+            href="/student"
+            className="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 active:scale-[0.99] transition-all"
           >
-            저장된 테스트 수업 열기 (준비 중)
-          </button>
+            👥 학생 화면 (테스트 모드)
+          </Link>
+
+          {/* 교사 대시보드 바로가기 버튼 */}
+          <Link
+            href="/teacher"
+            className="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 active:scale-[0.99] transition-all"
+          >
+            📊 교사 대시보드 보기
+          </Link>
         </div>
 
         {/* 하단 버전 표시 */}

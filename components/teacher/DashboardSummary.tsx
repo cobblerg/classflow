@@ -24,12 +24,20 @@ export default function DashboardSummary({ settings }: DashboardSummaryProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* 학생 화면 이동 버튼 */}
+          <Link
+            href="/student"
+            className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 active:scale-[0.98] transition-all"
+          >
+            👥 학생 화면
+          </Link>
+
           {/* 수업 설정으로 이동 버튼 */}
           <Link
             href="/setup"
-            className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] transition-all"
+            className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] transition-all"
           >
-            ⚙️ 수업 설정 변경
+            ⚙️ 설정 변경
           </Link>
         </div>
       </div>

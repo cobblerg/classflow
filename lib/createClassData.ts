@@ -28,17 +28,37 @@ export function createClassData(settings: ClassSettings): ClassFlowData {
   }
 
   // 2. 차시 목록 동적 생성 (1 ~ lessonCount)
-  // Demo 모드: 비교 분석 및 테스트 편의를 위해 최소 처음 3개 차시(1~3차시)를 기본 공개로 설정
+  // Demo 모드: 1~3차시는 공개 및 실제 수업 목표/과제 내용 제공, 4차시 이후는 비공개
+  const demoLessonContents: Record<number, { title: string; objective: string; description: string }> = {
+    1: {
+      title: "1차시 LED 켜기",
+      objective: "디지털 출력 핀(GPIO)의 기본 원리를 이해하고 코드를 통해 LED를 켤 수 있다.",
+      description: "LED의 긴 다리를 GP15에, 짧은 다리를 GND에 연결하세요. 마이크로파이썬 Pin 모듈을 사용하여 LED를 켜는 코드를 작성해 보세요.",
+    },
+    2: {
+      title: "2차시 LED 깜빡이기",
+      objective: "time 모듈의 sleep 함수를 활용하여 지정한 시간 간격으로 LED를 제어할 수 있다.",
+      description: "LED가 1초 동안 켜지고 1초 동안 꺼지는 깜빡임 동작을 무한히 반복하도록 while True 반복문을 작성해 보세요.",
+    },
+    3: {
+      title: "3차시 버튼으로 LED 제어하기",
+      objective: "디지털 입력 핀과 버튼 스위치의 동작 원리를 이해하고 입력에 반응하는 제어 회로를 구성할 수 있다.",
+      description: "버튼을 GP14에 연결하세요. 버튼을 누르고 있는 동안에만 LED가 켜지고 손을 떼면 꺼지도록 조건문(if-else)을 작성해 보세요.",
+    },
+  };
+
   const lessons: Lesson[] = [];
   for (let i = 1; i <= settings.lessonCount; i++) {
     const paddedNumber = String(i).padStart(2, "0");
+    const demoContent = demoLessonContents[i];
+
     lessons.push({
       id: `lesson-${paddedNumber}`,
       number: i,
-      title: `${i}차시`,
-      objective: "",
-      description: "",
-      published: i <= 3, // 1~3차시는 공개, 4차시 이후는 비공개 (차시 수가 적어도 안전)
+      title: demoContent ? demoContent.title : `${i}차시`,
+      objective: demoContent ? demoContent.objective : "",
+      description: demoContent ? demoContent.description : "",
+      published: i <= 3, // 1~3차시는 공개, 4차시 이후는 비공개
     });
   }
 
