@@ -72,7 +72,7 @@ export default function HelpQueueItem({
                 <span>🆘</span> 도움 필요
                 {!item.hasWaitingRequest && (
                   <span className="text-[10px] font-normal text-rose-600">
-                    (자가진단)
+                    (추가 확인 필요)
                   </span>
                 )}
               </span>

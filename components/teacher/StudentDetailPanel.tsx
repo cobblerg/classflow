@@ -1,11 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   getCurrentClassData,
-  resolveHelpRequest,
+  resolveHelpRequest as resolveLocalHelpRequest,
 } from "@/lib/tempStore";
+import {
+  getCourseDocument,
+  getCourseParticipants,
+  getCourseLessons,
+  getParticipantLessonProgress,
+  getParticipantLessonHelpRequests,
+  resolveHelpRequest as resolveFirestoreHelpRequest,
+} from "@/lib/firestore";
 import { getRoleLabels } from "@/lib/roleLabels";
 import type {
   ClassFlowData,
@@ -14,6 +22,7 @@ import type {
   Progress,
   HelpRequest,
   Feedback,
+  RoleLabels,
 } from "@/types";
 import FeedbackEditor from "./FeedbackEditor";
 
@@ -22,110 +31,154 @@ interface StudentDetailPanelProps {
   lessonId: string;
 }
 
-// 교사/강사용 참여자 상세 보기 메인 패널 컴포넌트 (STEP 11, STEP 16 범용화)
+// 교사/강사용 참여자 상세 보기 메인 패널 컴포넌트 (STEP 11, STEP 26 Firestore 연동)
 export default function StudentDetailPanel({
   studentId,
   lessonId,
 }: StudentDetailPanelProps) {
-  const [data, setData] = useState<ClassFlowData | null>(null);
+  // 모드 상태: "loading" | "firestore" | "local" | "error"
+  const [panelMode, setPanelMode] = useState<
+    "loading" | "firestore" | "local" | "error"
+  >("loading");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const currentData = getCurrentClassData();
-    setData(currentData);
+  // 공통 뷰 상태
+  const [courseName, setCourseName] = useState<string>("ClassFlow");
+  const [courseId, setCourseId] = useState<string | null>(null);
+  const [roleLabels, setRoleLabels] = useState<RoleLabels>({
+    instructor: "강사",
+    participant: "수강생",
+  });
+  const [student, setStudent] = useState<Student | null>(null);
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [progressItem, setProgressItem] = useState<Progress | null>(null);
+  const [relatedHelpRequests, setRelatedHelpRequests] = useState<HelpRequest[]>([]);
+
+  // 로컬 모드 전용 상태
+  const [localData, setLocalData] = useState<ClassFlowData | null>(null);
+  const [existingFeedback, setExistingFeedback] = useState<Feedback | null>(null);
+  const [submissionContent, setSubmissionContent] = useState<string | null>(null);
+
+  // 데이터 로드 함수 (STEP 26)
+  const loadDetailData = useCallback(async () => {
+    try {
+      const stored = getCurrentClassData();
+      const currentCourseId = stored?.settings?.courseId;
+
+      if (currentCourseId) {
+        // 1. Firestore 모드 확인 (요구사항 #35)
+        const courseDoc = await getCourseDocument(currentCourseId);
+        if (courseDoc) {
+          setCourseId(currentCourseId);
+          setCourseName(courseDoc.title);
+          const labels = getRoleLabels({ roleLabels: courseDoc.roleLabels });
+          setRoleLabels(labels);
+
+          // 수강생, 차시, 진행도, 도움 요청 병렬 조회
+          const [participants, lessons, progress, helpList] =
+            await Promise.all([
+              getCourseParticipants(currentCourseId),
+              getCourseLessons(currentCourseId),
+              getParticipantLessonProgress(
+                currentCourseId,
+                studentId,
+                lessonId
+              ),
+              getParticipantLessonHelpRequests(
+                currentCourseId,
+                studentId,
+                lessonId
+              ),
+            ]);
+
+          const foundStudent = participants.find((s) => s.id === studentId) || null;
+          const foundLesson = lessons.find((l) => l.id === lessonId) || null;
+
+          setStudent(foundStudent);
+          setLesson(foundLesson);
+          setProgressItem(progress);
+          setRelatedHelpRequests(helpList);
+          setPanelMode("firestore");
+          return;
+        }
+      }
+
+      // 2. 로컬 모드 (기존 tempStore 기반)
+      if (stored) {
+        setLocalData(stored);
+        setCourseName(stored.settings.className);
+        const labels = getRoleLabels(stored.settings);
+        setRoleLabels(labels);
+
+        const foundStudent = stored.students.find((s) => s.id === studentId) || null;
+        const foundLesson = stored.lessons.find((l) => l.id === lessonId) || null;
+        const foundProgress =
+          stored.progress.find(
+            (p) => p.studentId === studentId && p.lessonId === lessonId
+          ) || null;
+
+        const helpList = (stored.helpRequests || [])
+          .filter((r) => r.studentId === studentId && r.lessonId === lessonId)
+          .sort(
+            (a, b) =>
+              new Date(b.requestedAt).getTime() -
+              new Date(a.requestedAt).getTime()
+          );
+
+        const fb =
+          (stored.feedback || []).find(
+            (f) => f.studentId === studentId && f.lessonId === lessonId
+          ) || null;
+
+        const sub = (stored.submissions || []).find(
+          (s) => s.studentId === studentId && s.lessonId === lessonId
+        );
+
+        setStudent(foundStudent);
+        setLesson(foundLesson);
+        setProgressItem(foundProgress);
+        setRelatedHelpRequests(helpList);
+        setExistingFeedback(fb);
+        setSubmissionContent(sub?.content || null);
+        setPanelMode("local");
+      } else {
+        setErrorMessage("수업 데이터를 찾을 수 없습니다.");
+        setPanelMode("error");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[ClassFlow] StudentDetailPanel load error:", msg);
+      setErrorMessage(`상세 데이터를 불러오지 못했습니다: ${msg}`);
+      setPanelMode("error");
+    }
   }, [studentId, lessonId]);
 
-  if (!data) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-12 text-slate-500 text-sm">
-        데이터를 불러오는 중입니다...
-      </div>
-    );
-  }
+  useEffect(() => {
+    loadDetailData();
+  }, [loadDetailData]);
 
-  const roleLabels = getRoleLabels(data.settings);
-
-  // 1. 학생 및 차시 검색
-  const student: Student | undefined = data.students.find((s) => s.id === studentId);
-  const lesson: Lesson | undefined = data.lessons.find((l) => l.id === lessonId);
-
-  // 예외 처리: 존재하지 않는 학생 (Test J)
-  if (!student) {
-    return (
-      <div className="w-full max-w-md mx-auto bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm text-center">
-        <div className="text-4xl mb-3">🔍</div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">
-          {roleLabels.participant}을(를) 찾을 수 없습니다
-        </h2>
-        <p className="text-sm text-slate-500 mb-6">
-          요청하신 {roleLabels.participant} ID (<code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs">{studentId}</code>)는 존재하지 않습니다.
-        </p>
-        <Link
-          href="/teacher"
-          className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
-        >
-          ← {roleLabels.instructor} 대시보드로 돌아가기
-        </Link>
-      </div>
-    );
-  }
-
-  // 예외 처리: 존재하지 않는 차시 (Test J)
-  if (!lesson) {
-    return (
-      <div className="w-full max-w-md mx-auto bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm text-center">
-        <div className="text-4xl mb-3">📋</div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">
-          차시를 찾을 수 없습니다
-        </h2>
-        <p className="text-sm text-slate-500 mb-6">
-          요청하신 차시 ID (<code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs">{lessonId}</code>)는 존재하지 않습니다.
-        </p>
-        <Link
-          href="/teacher"
-          className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
-        >
-          ← {roleLabels.instructor} 대시보드로 돌아가기
-        </Link>
-      </div>
-    );
-  }
-
-  // 2. 해당 학생 × 차시의 데이터 추출
-  const progressItem: Progress | undefined = data.progress.find(
-    (p) => p.studentId === student.id && p.lessonId === lesson.id
-  );
-
-  // 도움 요청 이력 (가장 최근 순)
-  const relatedHelpRequests: HelpRequest[] = (data.helpRequests || [])
-    .filter((r) => r.studentId === student.id && r.lessonId === lesson.id)
-    .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
-
-  const latestHelpRequest = relatedHelpRequests[0] || null;
-
-  // 교사 피드백
-  const existingFeedback: Feedback | null =
-    (data.feedback || []).find(
-      (f) => f.studentId === student.id && f.lessonId === lesson.id
-    ) || null;
-
-  // 학생 결과물 (Submission, 조회 전용)
-  const submission = (data.submissions || []).find(
-    (s) => s.studentId === student.id && s.lessonId === lesson.id
-  );
-
-  // 도움 완료 처리 핸들러 (STEP 10 함수 재사용)
-  const handleResolve = (helpRequestId: string) => {
-    const success = resolveHelpRequest(helpRequestId);
-    if (success) {
-      const updated = getCurrentClassData();
-      if (updated) setData(updated);
+  // 도움 완료 처리 핸들러 (STEP 26, 요구사항 #37)
+  const handleResolve = async (helpRequestId: string) => {
+    if (panelMode === "firestore" && courseId) {
+      try {
+        await resolveFirestoreHelpRequest(courseId, helpRequestId);
+        // 상태 즉시 다시 읽기
+        await loadDetailData();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        alert(`도움 완료 처리 실패: ${msg}`);
+      }
+    } else {
+      const success = resolveLocalHelpRequest(helpRequestId);
+      if (success) {
+        await loadDetailData();
+      }
     }
   };
 
-  // 피드백 저장 완료 시 데이터 새로고침
+  // 로컬 모드 피드백 저장 완료 시 새로고침
   const handleFeedbackSaved = () => {
-    const updated = getCurrentClassData();
-    if (updated) setData(updated);
+    loadDetailData();
   };
 
   // 시간 포맷터
@@ -142,6 +195,84 @@ export default function StudentDetailPanel({
     }
   };
 
+  if (panelMode === "loading") {
+    return (
+      <div className="flex-1 flex items-center justify-center p-12 text-slate-500 text-sm">
+        데이터를 불러오는 중입니다...
+      </div>
+    );
+  }
+
+  if (panelMode === "error" || errorMessage) {
+    return (
+      <div className="w-full max-w-md mx-auto my-12 bg-white rounded-3xl p-8 border border-rose-200 shadow-sm text-center">
+        <div className="text-4xl mb-3">⚠️</div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">
+          오류가 발생했습니다
+        </h2>
+        <p className="text-sm text-slate-600 mb-6">{errorMessage}</p>
+        <Link
+          href="/teacher"
+          className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
+        >
+          ← 대시보드로 돌아가기
+        </Link>
+      </div>
+    );
+  }
+
+  // 예외 처리: 존재하지 않는 수강생
+  if (!student) {
+    return (
+      <div className="w-full max-w-md mx-auto my-12 bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm text-center">
+        <div className="text-4xl mb-3">🔍</div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">
+          {roleLabels.participant}을(를) 찾을 수 없습니다
+        </h2>
+        <p className="text-sm text-slate-500 mb-6">
+          요청하신 {roleLabels.participant} ID (
+          <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs">
+            {studentId}
+          </code>
+          )는 존재하지 않습니다.
+        </p>
+        <Link
+          href="/teacher"
+          className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
+        >
+          ← {roleLabels.instructor} 대시보드로 돌아가기
+        </Link>
+      </div>
+    );
+  }
+
+  // 예외 처리: 존재하지 않는 차시
+  if (!lesson) {
+    return (
+      <div className="w-full max-w-md mx-auto my-12 bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm text-center">
+        <div className="text-4xl mb-3">📋</div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">
+          차시를 찾을 수 없습니다
+        </h2>
+        <p className="text-sm text-slate-500 mb-6">
+          요청하신 차시 ID (
+          <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs">
+            {lessonId}
+          </code>
+          )는 존재하지 않습니다.
+        </p>
+        <Link
+          href="/teacher"
+          className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
+        >
+          ← {roleLabels.instructor} 대시보드로 돌아가기
+        </Link>
+      </div>
+    );
+  }
+
+  const latestHelpRequest = relatedHelpRequests[0] || null;
+
   return (
     <div className="w-full max-w-3xl mx-auto flex flex-col pb-12">
       {/* 1. 상단 네비게이션 */}
@@ -152,6 +283,12 @@ export default function StudentDetailPanel({
         >
           ← {roleLabels.instructor} 대시보드로 돌아가기
         </Link>
+
+        {panelMode === "firestore" && (
+          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 shadow-2xs">
+            ● 온라인 실시간 강의
+          </span>
+        )}
       </div>
 
       {/* 2. 헤더: 참여자 및 차시 정보 카드 */}
@@ -160,7 +297,7 @@ export default function StudentDetailPanel({
           <div className="flex items-center gap-2 text-xs font-semibold text-blue-600">
             <span>ClassFlow</span>
             <span>•</span>
-            <span>{data.settings.className}</span>
+            <span>{courseName}</span>
           </div>
           <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
             {roleLabels.instructor}용 {roleLabels.participant} 상세 보기
@@ -181,11 +318,13 @@ export default function StudentDetailPanel({
           <span className="font-bold text-slate-800">{lesson.title}</span>
         </div>
 
-        {/* 비공개 차시 안내 배너 (요구사항 24번) */}
+        {/* 비공개 차시 안내 배너 */}
         {!lesson.published && (
           <div className="mt-4 p-3 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-600 flex items-center gap-1.5">
             <span>🔒</span>
-            <span>현재 {roleLabels.participant}에게 비공개인 차시입니다. ({roleLabels.instructor} 관리 목적으로 조회 중)</span>
+            <span>
+              현재 {roleLabels.participant}에게 비공개인 차시입니다. ({roleLabels.instructor} 관리 목적으로 조회 중)
+            </span>
           </div>
         )}
       </header>
@@ -195,13 +334,17 @@ export default function StudentDetailPanel({
         <h2 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
           <span className="text-xl">📊</span>
           <span>학습 상태 요약</span>
-          <span className="text-xs font-normal text-slate-400">({roleLabels.participant} 자가 입력값)</span>
+          <span className="text-xs font-normal text-slate-400">
+            ({roleLabels.participant} 자가 입력값)
+          </span>
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           {/* 진행 상태 (Progress) */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col gap-1">
-            <span className="text-xs font-semibold text-slate-500">진행 상태 (과제 완성도)</span>
+            <span className="text-xs font-semibold text-slate-500">
+              진행 상태 (과제 완성도)
+            </span>
             <div className="flex items-center gap-2 mt-1">
               {progressItem?.status === "completed" ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -221,7 +364,9 @@ export default function StudentDetailPanel({
 
           {/* 이해 상태 (Understanding) */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col gap-1">
-            <span className="text-xs font-semibold text-slate-500">이해 상태 (개념 체감 난이도)</span>
+            <span className="text-xs font-semibold text-slate-500">
+              이해 상태 (개념 체감 난이도)
+            </span>
             <div className="flex items-center gap-2 mt-1">
               {progressItem?.understanding === "understood" ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -292,7 +437,7 @@ export default function StudentDetailPanel({
                   )}
                 </div>
 
-                {/* 대기 중인 경우 [도움 완료] 액션 버튼 (요구사항 11번) */}
+                {/* 대기 중인 경우 [도움 완료] 액션 버튼 (요구사항 #37) */}
                 {latestHelpRequest.status === "waiting" && (
                   <button
                     type="button"
@@ -306,20 +451,26 @@ export default function StudentDetailPanel({
 
               {/* 요청 메시지 내용 */}
               <div className="bg-white/90 p-3 rounded-xl border border-slate-100 text-xs sm:text-sm text-slate-800 mb-2">
-                <span className="font-semibold text-slate-900 block mb-0.5">요청 내용:</span>
+                <span className="font-semibold text-slate-900 block mb-0.5">
+                  요청 내용:
+                </span>
                 <p>{latestHelpRequest.message || "도움이 필요합니다."}</p>
               </div>
 
               {/* 요청 시각 및 처리 시각 */}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                <span>요청 시각: {formatTime(latestHelpRequest.requestedAt)}</span>
+                <span>
+                  요청 시각: {formatTime(latestHelpRequest.requestedAt)}
+                </span>
                 {latestHelpRequest.resolvedAt && (
-                  <span>처리 시각: {formatTime(latestHelpRequest.resolvedAt)}</span>
+                  <span>
+                    처리 시각: {formatTime(latestHelpRequest.resolvedAt)}
+                  </span>
                 )}
               </div>
             </div>
 
-            {/* 과거 이력이 여러 개인 경우 간단한 이력 목록 (요구사항 10번) */}
+            {/* 과거 이력이 여러 개인 경우 간단한 이력 목록 */}
             {relatedHelpRequests.length > 1 && (
               <div className="mt-1 pt-3 border-t border-slate-100">
                 <span className="text-xs font-semibold text-slate-500 block mb-1.5">
@@ -350,15 +501,19 @@ export default function StudentDetailPanel({
         )}
       </section>
 
-      {/* 5. 참여자 결과물(Submission) 섹션 (조회 전용) */}
+      {/* 5. 참여자 결과물(Submission) 섹션 */}
       <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm mb-5">
         <h2 className="text-base font-bold text-slate-900 mb-2 flex items-center gap-2">
           <span className="text-xl">📄</span>
           <span>{roleLabels.participant} 결과물</span>
         </h2>
-        {submission?.content ? (
+        {panelMode === "firestore" ? (
+          <div className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            온라인 강의의 결과물 제출/확인 기능은 다음 단계에서 지원될 예정입니다.
+          </div>
+        ) : submissionContent ? (
           <div className="text-xs sm:text-sm text-slate-700 whitespace-pre-line bg-slate-50 p-4 rounded-2xl border border-slate-100 leading-relaxed">
-            {submission.content}
+            {submissionContent}
           </div>
         ) : (
           <p className="text-xs sm:text-sm text-slate-400 italic py-2">
@@ -367,14 +522,27 @@ export default function StudentDetailPanel({
         )}
       </section>
 
-      {/* 6. 피드백 섹션 (STEP 11, STEP 16 범용화) */}
-      <FeedbackEditor
-        studentId={student.id}
-        lessonId={lesson.id}
-        existingFeedback={existingFeedback}
-        onFeedbackSaved={handleFeedbackSaved}
-        roleLabels={roleLabels}
-      />
+      {/* 6. 피드백 섹션 (요구사항 #36: Firestore mode 범위 제한) */}
+      {panelMode === "firestore" ? (
+        <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm">
+          <h2 className="text-base font-bold text-slate-900 mb-2 flex items-center gap-2">
+            <span className="text-xl">💬</span>
+            <span>{roleLabels.instructor} 피드백</span>
+          </h2>
+          <div className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            온라인 강의 피드백 작성 및 전송 기능은 다음 단계에서 지원될 예정입니다.
+          </div>
+        </section>
+      ) : (
+        <FeedbackEditor
+          studentId={student.id}
+          lessonId={lesson.id}
+          existingFeedback={existingFeedback}
+          onFeedbackSaved={handleFeedbackSaved}
+          roleLabels={roleLabels}
+        />
+      )}
     </div>
   );
 }
+

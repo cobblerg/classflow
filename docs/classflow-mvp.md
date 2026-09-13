@@ -1770,21 +1770,30 @@ ClassFlow를 향후 실제 다중 기기 환경에서 교사와 수강생이 실
 - **독립성 및 비기능 격리**:
   - `understanding = "need_help"`와 `HelpRequest`는 100% 완전 독립 (도움 요청을 보내도 이해도가 바뀌지 않으며, 이해도를 변경해도 HelpRequest가 자동 생성되지 않음)
   - `Progress` 진행 상태와도 상호 간섭 없음
-  - 강사 대시보드의 Help Queue 및 Realtime(onSnapshot)은 아직 Firestore로 전환하지 않음 (다음 단계 예정)
-- **현재 시스템 데이터 소스 상태 요약**:
-  - Course: Firestore
-  - Participants: Firestore
-  - Lessons: Firestore
+  - 강사 대시보드의 Help Queue 및 Realtime(onSnapshot)은 STEP 26에서 Firestore로 전환 완료
+
+## 9. STEP 26 — Teacher Dashboard + Help Queue Firestore 실시간 전환
+- **핵심 목표 달성**:
+  - 수강생의 Progress, Understanding, HelpRequest 변경 시 강사 대시보드(`/teacher`)에 새로고침 없이 실시간(`onSnapshot`) 반영
+  - 강사의 [도움 완료] 액션 시 Firestore의 HelpRequest가 `status: "resolved"`로 변경됨
+  - 도움 완료 처리 후에도 수강생의 `understanding === "need_help"`는 보존되어 Help Queue에 "추가 확인 필요" 상태로 유지됨
+- **아키텍처 및 실시간 최적화**:
+  - `settings.courseId` 및 Firestore Course 확인을 통한 Firestore/Demo 모드 분기
+  - `progress` 및 `helpRequests` 컬렉션 전체에 각 1개의 `onSnapshot` 리스너 연결 (N+1 방지)
+  - `useEffect` cleanup을 통해 `unsubscribe()` 안전 해제
+  - Map 구조 기반 $O(1)$ Grid 조회 및 빈 셀 기본값 처리 (30×20 대규모 그리드 정상 지원)
+  - Help Queue dedup 및 priority(waiting > need_help > difficult, 오래된 순) 적용
+  - 선생님 상세 화면(`StudentDetailPanel`) Firestore 모드 지원
+- **현재 시스템 데이터 소스 상태 요약 (STEP 26 기준)**:
+  - Course, Participants, Lessons: Firestore
   - Course Code Join: Firestore
-  - Firestore Join mode Progress: Firestore
-  - Firestore Join mode Understanding: Firestore
-  - Firestore Join mode HelpRequest: Firestore
-  - Local Demo / localStorage HelpRequest: localStorage
-  - Feedback: localStorage only
-  - Teacher Dashboard: localStorage 중심
-  - Teacher Help Queue: localStorage 중심
-  - Realtime (`onSnapshot`): 미구현
-  - Firebase Authentication: 미구현
+  - Student Progress, Understanding, HelpRequest: Firestore
+  - Teacher Progress Grid, Help Queue: Firestore Realtime (`onSnapshot`)
+  - Teacher HelpRequest Resolve: Firestore
+  - Demo: localStorage
+  - Feedback, Submission: localStorage (Firestore 미전환)
+  - Lesson Visibility, Participant Name 수정: Firestore sync 미구현
+  - Authentication: 미구현
 
 
 

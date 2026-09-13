@@ -137,3 +137,55 @@ export async function findCourseByCode(
     throw error;
   }
 }
+
+/**
+ * courseId(문서 ID)로 Firestore courses 컬렉션에서 강의를 단건 조회하는 헬퍼 함수 (STEP 26)
+ * - 강사 대시보드 진입 시 해당 강의의 유효성을 검증하고 기본 메타데이터를 불러옵니다.
+ *
+ * @param courseId Firestore 강의 ID
+ * @returns 일치하는 강의가 있으면 CourseDocument, 없으면 null
+ */
+export async function getCourseDocument(
+  courseId: string
+): Promise<CourseDocument | null> {
+  if (!db) {
+    throw new Error(
+      "Cloud Firestore가 초기화되지 않았습니다. .env.local 설정을 확인해 주세요."
+    );
+  }
+
+  if (!courseId) {
+    return null;
+  }
+
+  try {
+    const { doc, getDoc } = await import("firebase/firestore");
+    const courseDocRef = doc(db, "courses", courseId);
+    const docSnap = await getDoc(courseDocRef);
+
+    if (!docSnap.exists()) {
+      return null;
+    }
+
+    const data = docSnap.data();
+    const roleLabels: RoleLabels = {
+      instructor: data.roleLabels?.instructor || "강사",
+      participant: data.roleLabels?.participant || "수강생",
+    };
+
+    return {
+      courseId: docSnap.id,
+      title: typeof data.title === "string" ? data.title : "이름 없는 강의",
+      courseCode: typeof data.courseCode === "string" ? data.courseCode : "",
+      roleLabels,
+      studentCount: typeof data.studentCount === "number" ? data.studentCount : 0,
+      lessonCount: typeof data.lessonCount === "number" ? data.lessonCount : 0,
+      instructorId: data.instructorId || null,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null,
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[ClassFlow Firestore] getCourseDocument error:", message);
+    throw new Error(`강의 문서 조회 실패: ${message}`);
+  }
+}

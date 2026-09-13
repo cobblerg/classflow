@@ -203,15 +203,56 @@ Firestore는 관계형 데이터베이스의 `UNIQUE` 제약조건이 없습니�
 
 ## 6. 보안 규칙(Security Rules) 및 비용 주의사항
 
-### 6.1. 보안 규칙 (현재 임시 상태 안내)
-- 현재 STEP 20은 **Firebase Authentication(사용자 로그인)이 적용되기 전 단계**입니다.
-- 개발 및 연결 테스트를 위해 임시로 읽기/쓰기를 허용하더라도, **절대로 운영(Production) 환경에 그대로 배포해서는 안 됩니다.**
-- 향후 STEP에서 강사 UID와 수강생 토큰 기반으로 `request.auth != null` 등의 정교한 Security Rules를 반드시 적용할 예정입니다.
+### 6.1. 보안 규칙 (현재 개발 단계 분석 및 한계 안내)
+> [!WARNING]
+> **Authentication 부재에 따른 보안 한계 안내**:
+> - 현재 STEP 26은 **Firebase Authentication(사용자 로그인 및 토큰 인증)이 아직 구현되지 않은 단계**입니다.
+> - 따라서 `localStorage`에 보관된 `courseId`는 브라우저 식별용일 뿐 실제 사용자 신원을 서버에서 증명하는 암호학적 서명이 아닙니다.
+> - 현재 상태에서는 `courses/{courseId}` 및 하위 서브컬렉션(`participants`, `lessons`, `progress`, `helpRequests`)에 대한 읽기/쓰기 권한을 "강사"와 "수강생"으로 완벽히 분리하는 서버 측 보안 규칙을 적용할 수 없습니다.
+> - **절대로 전체 DB에 `allow read, write: if true;`를 적용하지 마세요.**
+> - 현재 개발 단계에서는 경로별 필요한 최소 권한(예: 특정 `courses/{courseId}` 하위 문서 읽기 및 `progress`, `helpRequests` 생성/상태 변경 허용)만 한정하여 테스트해야 하며, 실제 학생 개인정보나 민감 데이터는 절대 입력하지 마세요. (가명 테스트 데이터만 사용)
+> - **완전한 강사 권한 보호 및 수강생 권한 격리는 향후 Firebase Authentication 도입 후 구현됩니다.**
 
-### 6.2. Firestore 비용 안내
+### 6.2. 권장 임시 개발 보안 규칙 스키마 (STEP 26 기준)
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 강의 메타데이터: 읽기 가능, 생성 가능
+    match /courses/{courseId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if false; // 현재 단계 강사 설정 업데이트는 미구현
+
+      // 수강생 및 차시 목록: 조회 가능, 생성은 배치 생성만
+      match /participants/{participantId} {
+        allow read: if true;
+        allow write: if true; // 강의 생성 시 batch write
+      }
+      match /lessons/{lessonId} {
+        allow read: if true;
+        allow write: if true; // 강의 생성 시 batch write
+      }
+
+      // 진행도 및 이해도: 수강생 본인 상태 저장/조회 및 강사 실시간 onSnapshot
+      match /progress/{progressId} {
+        allow read, write: if true;
+      }
+
+      // 도움 요청: 수강생 생성/취소 및 강사 실시간 onSnapshot + status update(resolved)
+      match /helpRequests/{helpRequestId} {
+        allow read, create, update: if true;
+        allow delete: if false; // 이력 데이터는 삭제하지 않음
+      }
+    }
+  }
+}
+```
+
+### 6.3. Firestore 비용 안내
 - Firestore는 저장 용량뿐 아니라 **읽기(Read), 쓰기(Write), 삭제(Delete)** 횟수에 따라 과금됩니다.
 - 무료 사용량(Spark 요금제): 하루 읽기 50,000회, 쓰기 20,000회 등 교육 및 MVP 검증에 충분한 무료 쿼터를 제공합니다.
-- 불필요한 전체 컬렉션 반복 조회 대신 문서 ID 기반의 타겟 조회를 권장합니다.
+- STEP 26에서는 셀 단위 N+1 리스너 대신 `progress` 컬렉션 전체에 리스너 1개, `helpRequests` 컬렉션 전체에 리스너 1개만 연결하여 읽기 비용을 극대화하여 절감했습니다.
 
 ---
 
@@ -231,7 +272,36 @@ Firestore는 관계형 데이터베이스의 `UNIQUE` 제약조건이 없습니�
 - **STEP 25 (완료)**:
   - 수강생 과제 상세(`LessonDetail`)에서 `courses/{courseId}/helpRequests`에 도움 요청 생성(자동 ID), 중복 대기 방지(`getActiveHelpRequest`), 취소(status: cancelled), 취소 후 재요청 구현
   - 새로고침(F5) 및 Student Dashboard `hasWaitingHelpRequest` 뱃지 실시간 동기화 완비
-- **STEP 26 (예정)**: 강사 대시보드 Help Queue의 Firestore 연동 및 실시간 리스너(`onSnapshot`) 도입
+- **STEP 26 (완료)**:
+  - 강사 Teacher Dashboard(`/teacher`) 및 Student Detail(`StudentDetailPanel`)의 Firestore 실시간 전환
+  - `progress` 컬렉션 단일 `onSnapshot()` 리스너로 Progress Grid 실시간 반영 (새로고침 없이 ⚪ ➡️ 🟡 ➡️ 🟢, 🔴 도움 필요, 🤔 어려움 즉시 표시)
+  - `helpRequests` 컬렉션 단일 `onSnapshot()` 리스너로 Help Queue 실시간 반영
+  - Help Queue 중복 제거(dedup: waiting + need_help 1개 카드 병합) 및 우선순위 정렬(waiting 1순위 > need_help 2순위 > difficult 3순위, 동일 우선순위 오래된 순)
+  - 강사 Help Queue [도움 완료] 액션 구현 (`resolveHelpRequest`: status = "resolved", resolvedAt)
+  - 도움 완료 후 understanding = need_help는 변경하지 않고 독립성 유지 ("추가 확인 필요" 상태로 큐 유지)
+  - 기존 로컬 Demo mode와 100% 무결성 유지 (settings.courseId 판별 분기)
+- **STEP 27 (예정)**: 차시 공개/비공개(Lesson Visibility) 및 수강생 정보 Firestore 동기화
+
+---
+
+## 8. 현재 시스템 데이터 소스 (STEP 26 기준)
+
+- **Course 기본정보**: Cloud Firestore (`courses/{courseId}`)
+- **Participants 명단**: Cloud Firestore (`courses/{courseId}/participants`, number ASC)
+- **Lessons 차시 목록**: Cloud Firestore (`courses/{courseId}/lessons`, number ASC)
+- **Course Code 입장 (`/join`)**: Cloud Firestore 쿼리 (`where("courseCode", "==", code)`)
+- **수강생 Progress 상태**: Cloud Firestore (`courses/{courseId}/progress/{participantId}_{lessonId}`)
+- **수강생 Understanding 상태**: Cloud Firestore (`courses/{courseId}/progress/{participantId}_{lessonId}`)
+- **수강생 HelpRequest 생성/취소/재요청**: Cloud Firestore (`courses/{courseId}/helpRequests`)
+- **강사 Progress Grid 실시간 현황**: Cloud Firestore Realtime (`onSnapshot`, collection 전체 1개)
+- **강사 Help Queue 실시간 대기열**: Cloud Firestore Realtime (`onSnapshot`, collection 전체 1개)
+- **강사 HelpRequest Resolve(도움 완료)**: Cloud Firestore (`resolveHelpRequest`)
+- **Demo / Local 수업**: `localStorage` (`classflow-mvp-data`)
+- **피드백(Feedback)**: `localStorage` (Firestore 미전환)
+- **과제 제출물(Submission)**: `localStorage` (Firestore 미전환)
+- **차시 공개/비공개 설정 동기화**: 미구현 (강의 개설 시점의 Firestore published 값 조회 전용)
+- **수강생 이름 수정 동기화**: 미구현 (강의 개설 시점의 Firestore name 값 조회 전용)
+- **사용자 인증 (Firebase Authentication)**: 미구현 (향후 도입 예정)
 
 
 

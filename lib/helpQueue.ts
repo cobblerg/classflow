@@ -92,6 +92,14 @@ export function buildHelpQueue(data: ClassFlowData): HelpQueueItemType[] {
 
       const key = `${req.studentId}_${req.lessonId}`;
 
+      // 동일 학생 + 차시에 waiting 요청이 2건 이상인 비정상 상황 방어 (요구사항 #31)
+      if (queueMap.has(key)) {
+        console.warn(
+          `[ClassFlow HelpQueue] 동일 수강생(${student.name}) 및 차시(${lesson.number}차시)에 중복된 waiting 요청이 발견되었습니다. 가장 오래된 요청을 우선 채택합니다.`
+        );
+        return;
+      }
+
       queueMap.set(key, {
         id: key,
         studentId: req.studentId,

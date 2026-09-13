@@ -6,6 +6,7 @@ import {
   setDoc,
   query,
   where,
+  onSnapshot,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
@@ -249,5 +250,98 @@ export async function saveParticipantLessonProgress(
       message
     );
     throw new Error(`진행 상태 저장 실패: ${message}`);
+  }
+}
+
+/**
+ * 특정 강의의 전체 Progress 컬렉션을 실시간으로 구독하는 리스너 함수 (STEP 26)
+ * - 경로: courses/{courseId}/progress
+ * - 셀 단위 N+1 쿼리가 아닌 컬렉션 전체에 1개의 onSnapshot 리스너를 연결합니다. (요구사항 #7, #48)
+ * - React effect cleanup에서 호출할 수 있는 unsubscribe 함수를 반환합니다. (요구사항 #9)
+ *
+ * @param courseId Firestore 강의 ID
+ * @param onNext 데이터 변경 시 호출될 콜백 함수
+ * @param onError 오류 발생 시 호출될 콜백 함수
+ * @returns 리스너 해제 함수 (unsubscribe)
+ */
+export function subscribeCourseProgress(
+  courseId: string,
+  onNext: (progressList: Progress[]) => void,
+  onError?: (error: Error) => void
+): () => void {
+  if (!db || !courseId) {
+    return () => {};
+  }
+
+  try {
+    const progressColRef = collection(db, "courses", courseId, "progress");
+
+    const unsubscribe = onSnapshot(
+      progressColRef,
+      (snapshot) => {
+        const list: Progress[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          const status: ProgressStatus =
+            data.status === "in_progress" || data.status === "completed"
+              ? data.status
+              : "not_started";
+
+          const understanding: Understanding =
+            data.understanding === "understood" ||
+            data.understanding === "difficult" ||
+            data.understanding === "need_help"
+              ? data.understanding
+              : null;
+
+          let updatedAt = new Date().toISOString();
+          if (data.updatedAt instanceof Timestamp) {
+            updatedAt = data.updatedAt.toDate().toISOString();
+          } else if (typeof data.updatedAt?.toDate === "function") {
+            updatedAt = data.updatedAt.toDate().toISOString();
+          }
+
+          // docSnap.id 형식: {participantId}_{lessonId}
+          const [idPartParticipant, idPartLesson] = docSnap.id.split("_");
+          const studentId =
+            typeof data.participantId === "string"
+              ? data.participantId
+              : idPartParticipant || "";
+          const lessonId =
+            typeof data.lessonId === "string"
+              ? data.lessonId
+              : idPartLesson || "";
+
+          return {
+            studentId,
+            lessonId,
+            status,
+            understanding,
+            updatedAt,
+          };
+        });
+
+        onNext(list);
+      },
+      (error) => {
+        console.error(
+          "[ClassFlow Firestore] subscribeCourseProgress listener error:",
+          error
+        );
+        if (onError) {
+          onError(error);
+        }
+      }
+    );
+
+    return unsubscribe;
+  } catch (err: unknown) {
+    const errorObj =
+      err instanceof Error ? err : new Error(String(err));
+    console.error(
+      "[ClassFlow Firestore] subscribeCourseProgress setup error:",
+      errorObj
+    );
+    if (onError) onError(errorObj);
+    return () => {};
   }
 }
