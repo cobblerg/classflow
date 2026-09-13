@@ -8,11 +8,13 @@ import { createDemoClassData } from "@/data/demoData";
 import { setCurrentClassData, getCurrentClassData } from "@/lib/tempStore";
 import { DEFAULT_ROLE_LABELS, SCHOOL_ROLE_LABELS } from "@/lib/roleLabels";
 import { generateCourseCode } from "@/lib/courseCode";
+import { parseParticipantCsv, type ParsedParticipant } from "@/lib/parseParticipantCsv";
 import type { ClassSettings, RoleLabels } from "@/types";
 
 type PresetType = "general" | "school" | "custom";
+type RosterMethod = "auto" | "csv";
 
-// 수업/강의 설정 폼 컴포넌트 (STEP 16 범용화)
+// 수업/강의 설정 폼 컴포넌트 (STEP 16 범용화, STEP 18 명단 관리)
 export default function ClassSetupForm() {
   const router = useRouter();
 
@@ -24,6 +26,12 @@ export default function ClassSetupForm() {
   const [instructorLabel, setInstructorLabel] = useState<string>("강사");
   const [participantLabel, setParticipantLabel] = useState<string>("수강생");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // 1-1. 수강생 명단 준비 방식 (자동 생성 vs CSV 업로드, STEP 18)
+  const [rosterMethod, setRosterMethod] = useState<RosterMethod>("auto");
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvParticipants, setCsvParticipants] = useState<ParsedParticipant[]>([]);
+  const [csvError, setCsvError] = useState<string | null>(null);
 
   // 2. 오류 메시지 상태 관리
   const [errors, setErrors] = useState<{
@@ -49,6 +57,47 @@ export default function ClassSetupForm() {
     }
   };
 
+  // CSV 파일 선택 및 파싱 핸들러 (STEP 18)
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setCsvError("CSV 파일만 업로드할 수 있습니다.");
+      setCsvFile(null);
+      setCsvParticipants([]);
+      return;
+    }
+
+    setCsvFile(file);
+    setCsvError(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const parseResult = parseParticipantCsv(text);
+      if (parseResult.success) {
+        setCsvParticipants(parseResult.participants);
+        setCsvError(null);
+        setStudentCount(parseResult.participants.length);
+      } else {
+        setCsvError(parseResult.error);
+        setCsvParticipants([]);
+      }
+    };
+    reader.onerror = () => {
+      setCsvError("파일을 읽는 중 오류가 발생했습니다. 다시 시도해 주세요.");
+    };
+    reader.readAsText(file, "UTF-8");
+  };
+
+  // CSV 재선택 핸들러
+  const handleResetCsv = () => {
+    setCsvFile(null);
+    setCsvParticipants([]);
+    setCsvError(null);
+  };
+
   // 입력값 검증 함수
   const validateForm = (): boolean => {
     const newErrors: {
@@ -64,12 +113,20 @@ export default function ClassSetupForm() {
       newErrors.className = "강의명을 입력해 주세요.";
     }
 
-    // 참여자 수 검증 (1 ~ 40)
-    const parsedStudents = Number(studentCount);
-    if (isNaN(parsedStudents) || !Number.isInteger(parsedStudents)) {
-      newErrors.studentCount = `${participantLabel} 수를 숫자로 정확히 입력해 주세요.`;
-    } else if (parsedStudents < 1 || parsedStudents > 40) {
-      newErrors.studentCount = `${participantLabel} 수는 1명에서 40명 사이로 입력해 주세요.`;
+    // 인원수 검증 (자동 생성 방식일 때만 인풋 검증)
+    if (rosterMethod === "auto") {
+      const parsedStudents = Number(studentCount);
+      if (isNaN(parsedStudents) || !Number.isInteger(parsedStudents)) {
+        newErrors.studentCount = `${participantLabel} 수를 숫자로 정확히 입력해 주세요.`;
+      } else if (parsedStudents < 1 || parsedStudents > 40) {
+        newErrors.studentCount = `${participantLabel} 수는 1명에서 40명 사이로 입력해 주세요.`;
+      }
+    } else {
+      // CSV 업로드 방식일 때 명단 존재 여부 검증
+      if (csvParticipants.length === 0) {
+        setCsvError("수강생 명단 CSV 파일을 업로드해 주세요.");
+        return false;
+      }
     }
 
     // 차시 수 검증 (1 ~ 30)
@@ -111,9 +168,11 @@ export default function ClassSetupForm() {
       participant: participantLabel.trim() || DEFAULT_ROLE_LABELS.participant,
     };
 
+    const finalStudentCount = rosterMethod === "csv" ? csvParticipants.length : Number(studentCount);
+
     const newSettings: ClassSettings = {
       className: className.trim(),
-      studentCount: Number(studentCount),
+      studentCount: finalStudentCount,
       lessonCount: Number(lessonCount),
       createdAt: new Date().toISOString(),
       roleLabels,
@@ -121,7 +180,9 @@ export default function ClassSetupForm() {
     };
 
     // 1. lib/createClassData를 통해 학생(수강생), 차시, Progress 데이터 동적 생성
-    const classFlowData = createClassData(newSettings);
+    // (CSV 명단이 있을 경우 해당 명단으로 생성)
+    const customStudents = rosterMethod === "csv" ? csvParticipants : undefined;
+    const classFlowData = createClassData(newSettings, customStudents);
 
     // 2. 임시 인메모리 스토어 및 localStorage에 보관
     setCurrentClassData(classFlowData);
@@ -333,44 +394,181 @@ export default function ClassSetupForm() {
           )}
         </div>
 
-        {/* 2. 참여자 수 입력 (수강생 수 / 학생 수 동적 반영) */}
-        <div>
-          <label
-            htmlFor="studentCount"
-            className="block text-sm font-semibold text-slate-800 mb-2"
-          >
-            {participantLabel} 수 <span className="text-red-500">*</span>
-            <span className="ml-1.5 text-xs font-normal text-slate-500">
-              (1 ~ 40명)
-            </span>
+        {/* 2. 참여자 명단 준비 방법 (자동 생성 vs CSV 업로드, STEP 18) */}
+        <div className="pt-1">
+          <label className="block text-sm font-semibold text-slate-800 mb-2">
+            {participantLabel} 명단 준비 방법 <span className="text-red-500">*</span>
           </label>
-          <input
-            id="studentCount"
-            type="number"
-            min={1}
-            max={40}
-            value={studentCount}
-            onChange={(e) => {
-              setStudentCount(e.target.value);
-              if (errors.studentCount) {
-                setErrors((prev) => ({ ...prev, studentCount: undefined }));
-              }
-            }}
-            placeholder="20"
-            className={`w-full px-4 py-3 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 ${
-              errors.studentCount
-                ? "border-red-400 bg-red-50/30 focus:ring-red-400"
-                : "border-slate-300 focus:border-blue-500 focus:ring-blue-100"
-            }`}
-          />
-          {errors.studentCount ? (
-            <p className="mt-1.5 text-xs font-medium text-red-600">
-              {errors.studentCount}
-            </p>
+
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <label
+              className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                rosterMethod === "auto"
+                  ? "border-blue-600 bg-blue-50/50 text-blue-900 font-bold shadow-2xs"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <input
+                type="radio"
+                name="rosterMethod"
+                value="auto"
+                checked={rosterMethod === "auto"}
+                onChange={() => {
+                  setRosterMethod("auto");
+                  setCsvError(null);
+                }}
+                className="text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-xs">인원수로 자동 생성</span>
+            </label>
+
+            <label
+              className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                rosterMethod === "csv"
+                  ? "border-blue-600 bg-blue-50/50 text-blue-900 font-bold shadow-2xs"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <input
+                type="radio"
+                name="rosterMethod"
+                value="csv"
+                checked={rosterMethod === "csv"}
+                onChange={() => {
+                  setRosterMethod("csv");
+                  setErrors((prev) => ({ ...prev, studentCount: undefined }));
+                }}
+                className="text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-xs">CSV 파일 업로드</span>
+            </label>
+          </div>
+
+          {/* 방법 A: 인원수로 자동 생성 UI */}
+          {rosterMethod === "auto" ? (
+            <div>
+              <label
+                htmlFor="studentCount"
+                className="block text-xs font-semibold text-slate-700 mb-1.5"
+              >
+                {participantLabel} 수
+                <span className="ml-1.5 text-[11px] font-normal text-slate-500">
+                  (1 ~ 40명, 번호순으로 자동 생성)
+                </span>
+              </label>
+              <input
+                id="studentCount"
+                type="number"
+                min={1}
+                max={40}
+                value={studentCount}
+                onChange={(e) => {
+                  setStudentCount(e.target.value);
+                  if (errors.studentCount) {
+                    setErrors((prev) => ({ ...prev, studentCount: undefined }));
+                  }
+                }}
+                placeholder="20"
+                className={`w-full px-4 py-3 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 ${
+                  errors.studentCount
+                    ? "border-red-400 bg-red-50/30 focus:ring-red-400"
+                    : "border-slate-300 focus:border-blue-500 focus:ring-blue-100"
+                }`}
+              />
+              {errors.studentCount ? (
+                <p className="mt-1.5 text-xs font-medium text-red-600">
+                  {errors.studentCount}
+                </p>
+              ) : (
+                <p className="mt-1.5 text-xs text-slate-400">
+                  예: 20명 입력 시 '01 {participantLabel}01'부터 '20 {participantLabel}20'까지 자동 생성됩니다.
+                </p>
+              )}
+            </div>
           ) : (
-            <p className="mt-1.5 text-xs text-slate-400">
-              권장 범위: 1 ~ 40명
-            </p>
+            /* 방법 B: CSV 파일 업로드 및 미리보기 UI */
+            <div className="space-y-3">
+              {csvParticipants.length === 0 ? (
+                <div>
+                  <label
+                    htmlFor="csv-upload"
+                    className="block text-xs font-semibold text-slate-700 mb-1.5"
+                  >
+                    CSV 파일 선택 (.csv)
+                  </label>
+                  <input
+                    id="csv-upload"
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileChange}
+                    className="w-full text-xs text-slate-600 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 file:cursor-pointer border border-slate-300 rounded-xl p-2 bg-slate-50/50"
+                  />
+
+                  {csvError && (
+                    <div className="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs font-semibold text-red-700">
+                      ⚠️ {csvError}
+                    </div>
+                  )}
+
+                  {/* CSV 작성 샘플 안내 (요구사항 #35) */}
+                  <div className="mt-2.5 p-3 rounded-xl bg-slate-50/80 border border-slate-200 text-[11px] text-slate-600 space-y-1">
+                    <p className="font-semibold text-slate-700">💡 CSV 권장 형식 예시</p>
+                    <pre className="p-2 rounded bg-white border border-slate-200 font-mono text-[10.5px] text-slate-700 leading-tight">
+{`번호,이름
+1,김민지
+2,이준호
+3,박서연`}
+                    </pre>
+                    <p className="text-slate-400 text-[10px]">
+                      * '이름' 열만 있는 단일 열 형식도 지원합니다. (최대 40명)
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* CSV 업로드 명단 미리보기 카드 (요구사항 #15) */
+                <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200/90 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-blue-900">
+                        📋 {participantLabel} 명단 미리보기
+                      </h4>
+                      <span className="text-[11px] text-blue-700 font-medium">
+                        총 {csvParticipants.length}명 등록됨
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleResetCsv}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 active:scale-[0.98] transition-all cursor-pointer"
+                    >
+                      🔄 다시 선택
+                    </button>
+                  </div>
+
+                  {/* 명단 리스트 박스 */}
+                  <div className="max-h-40 overflow-y-auto rounded-xl bg-white border border-blue-100 p-2 space-y-1 divide-y divide-slate-100 scrollbar-thin">
+                    {csvParticipants.map((p) => (
+                      <div
+                        key={p.number}
+                        className="flex items-center justify-between px-2.5 py-1.5 text-xs"
+                      >
+                        <span className="font-mono text-slate-400 font-semibold">
+                          {String(p.number).padStart(2, "0")}
+                        </span>
+                        <span className="font-bold text-slate-800">
+                          {p.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="text-[10px] text-blue-700/80">
+                    ✓ 이 명단으로 {csvParticipants.length}명의 {participantLabel} 계정이 자동 생성됩니다.
+                  </p>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

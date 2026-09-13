@@ -459,6 +459,41 @@ export function updateClassSettings(
 }
 
 /**
+ * 특정 수강생/참여자의 이름을 수정하고 localStorage에 저장하는 함수 (STEP 18)
+ * - student.id 및 student.number는 절대 변경하지 않고 불변 유지 (요구사항 #25)
+ * - Progress, Understanding, HelpRequest, Feedback 등 studentId 기반 데이터 100% 보존 (요구사항 #26)
+ */
+export function updateStudentName(studentId: string, newName: string): boolean {
+  const current = getCurrentClassData();
+  if (!current) return false;
+
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed.length > 30) return false;
+
+  const studentIndex = current.students.findIndex((s) => s.id === studentId);
+  if (studentIndex === -1) return false;
+
+  const updatedStudents = [...current.students];
+  const target = updatedStudents[studentIndex];
+
+  // id와 number는 그대로 유지하고 name만 갱신
+  updatedStudents[studentIndex] = {
+    ...target,
+    name: trimmed,
+  };
+
+  inMemoryClassData = {
+    ...current,
+    students: updatedStudents,
+  };
+
+  // localStorage에 즉시 영속화
+  saveClassFlowData(inMemoryClassData);
+
+  return true;
+}
+
+/**
  * 메모리와 브라우저 localStorage의 모든 ClassFlow 데이터를 완전히 초기화하는 함수
  */
 export function clearCurrentClassData(): void {

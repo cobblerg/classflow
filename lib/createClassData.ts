@@ -10,24 +10,46 @@ import { generateCourseCode } from "./courseCode";
 /**
  * 수업 설정 정보(ClassSettings)를 기반으로
  * 학생, 차시, 초기 Progress를 포함한 전체 ClassFlowData를 동적으로 생성하는 함수
+ *
+ * - customStudents가 제공되면 해당 명단(CSV 업로드 등)으로 Student를 생성합니다. (STEP 18)
+ * - 제공되지 않으면 studentCount에 따라 번호순 placeholder 이름을 자동 생성합니다.
  */
-export function createClassData(settings: ClassSettings): ClassFlowData {
+export function createClassData(
+  settings: ClassSettings,
+  customStudents?: { number: number; name: string }[]
+): ClassFlowData {
   // 현재 시각 (ISO 문자열 형태)
   const now = new Date().toISOString();
 
-  // 1. 참여자 목록 동적 생성 (1 ~ studentCount)
-  // 역할 명칭(settings.roleLabels.participant)에 따라 기본 이름 접두사 결정 (예: 수강생01, 학생01, 참여자01)
-  const participantPrefix = settings.roleLabels?.participant?.trim() || "수강생";
+  // 1. 참여자 목록 동적 생성
   const students: Student[] = [];
-  for (let i = 1; i <= settings.studentCount; i++) {
-    // 2자리 숫자로 맞추기 (예: 1 -> "01", 10 -> "10")
-    const paddedNumber = String(i).padStart(2, "0");
-    students.push({
-      id: `student-${paddedNumber}`,
-      number: i,
-      name: `${participantPrefix}${paddedNumber}`,
+
+  if (customStudents && customStudents.length > 0) {
+    // 방법 B: CSV 업로드 등 사용자 정의 명단 활용
+    customStudents.forEach((cs, idx) => {
+      const num = idx + 1;
+      const paddedNumber = String(num).padStart(2, "0");
+      students.push({
+        id: `student-${paddedNumber}`,
+        number: num,
+        name: cs.name.trim(),
+      });
     });
+  } else {
+    // 방법 A: studentCount 기반 번호순 자동 생성 (예: 수강생01, 학생01, 참여자01)
+    const participantPrefix = settings.roleLabels?.participant?.trim() || "수강생";
+    for (let i = 1; i <= settings.studentCount; i++) {
+      const paddedNumber = String(i).padStart(2, "0");
+      students.push({
+        id: `student-${paddedNumber}`,
+        number: i,
+        name: `${participantPrefix}${paddedNumber}`,
+      });
+    }
   }
+
+  // 실제 생성된 참여자 수로 studentCount 동기화
+  const finalStudentCount = students.length;
 
   // 2. 차시 목록 동적 생성 (1 ~ lessonCount)
   // Demo 모드: 1~3차시는 공개 및 실제 수업 목표/과제 내용 제공, 4차시 이후는 비공개
@@ -115,6 +137,7 @@ export function createClassData(settings: ClassSettings): ClassFlowData {
   return {
     settings: {
       ...settings,
+      studentCount: finalStudentCount,
       courseCode: settings.courseCode || generateCourseCode(),
       createdAt: settings.createdAt || now,
     },

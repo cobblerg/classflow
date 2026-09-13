@@ -1,18 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { ClassSettings } from "@/types";
-import { updateClassSettings } from "@/lib/tempStore";
+import type { ClassSettings, Student } from "@/types";
+import { updateClassSettings, updateStudentName, getCurrentClassData } from "@/lib/tempStore";
 import { getRoleLabels } from "@/lib/roleLabels";
 
 interface ClassSettingsPanelProps {
   settings: ClassSettings;
+  students?: Student[];
   onSettingsUpdated: () => void;
 }
 
-// 교사/강사용 강의 기본 설정 확인 및 강의명/역할명칭 수정 컴포넌트 (STEP 12, STEP 16 확장)
+// 교사/강사용 강의 기본 설정 확인 및 강의명/역할명칭/수강생명단 수정 컴포넌트 (STEP 12, STEP 16, STEP 18)
 export default function ClassSettingsPanel({
   settings,
+  students: initialStudents,
   onSettingsUpdated,
 }: ClassSettingsPanelProps) {
   const roleLabels = getRoleLabels(settings);
@@ -22,6 +24,11 @@ export default function ClassSettingsPanel({
   const [participantInput, setParticipantInput] = useState<string>(roleLabels.participant);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // 수강생 개별 이름 수정 상태 (STEP 18)
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [editingStudentName, setEditingStudentName] = useState<string>("");
+  const [studentErrorMsg, setStudentErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     setClassNameInput(settings.className);
@@ -59,6 +66,50 @@ export default function ClassSettingsPanel({
       setIsEditing(false);
       setErrorMsg(null);
       setSuccessMsg("강의 설정이 성공적으로 변경되었습니다.");
+      onSettingsUpdated();
+
+      setTimeout(() => {
+        setSuccessMsg(null);
+      }, 2500);
+    }
+  };
+
+  // 현재 학생 목록 조회 (props 우선, 미존재 시 스토어 조회)
+  const currentClassData = getCurrentClassData();
+  const studentsList = initialStudents || currentClassData?.students || [];
+
+  // 개별 수강생 이름 수정 시작
+  const handleStartEditStudent = (id: string, currentName: string) => {
+    setEditingStudentId(id);
+    setEditingStudentName(currentName);
+    setStudentErrorMsg(null);
+  };
+
+  // 개별 수강생 이름 수정 취소
+  const handleCancelEditStudent = () => {
+    setEditingStudentId(null);
+    setEditingStudentName("");
+    setStudentErrorMsg(null);
+  };
+
+  // 개별 수강생 이름 수정 저장
+  const handleSaveStudentName = (id: string) => {
+    const trimmed = editingStudentName.trim();
+    if (!trimmed) {
+      setStudentErrorMsg("이름을 입력해 주세요.");
+      return;
+    }
+    if (trimmed.length > 30) {
+      setStudentErrorMsg("이름은 최대 30자까지 입력 가능합니다.");
+      return;
+    }
+
+    const success = updateStudentName(id, trimmed);
+    if (success) {
+      setEditingStudentId(null);
+      setEditingStudentName("");
+      setStudentErrorMsg(null);
+      setSuccessMsg("이름이 성공적으로 수정되었습니다.");
       onSettingsUpdated();
 
       setTimeout(() => {
@@ -227,6 +278,109 @@ export default function ClassSettingsPanel({
             인원 및 차시 규모 변경은 [강의 설정]에서 새 강의로 생성하세요.
           </span>
         </div>
+      </div>
+
+      {/* 3. 참여자 명단 관리 섹션 (STEP 18) */}
+      <div className="mt-5 pt-4 border-t border-slate-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-base">👥</span>
+            <h4 className="text-sm font-bold text-slate-900">
+              {roleLabels.participant} 관리
+            </h4>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+              총 {studentsList.length}명
+            </span>
+          </div>
+
+          {studentErrorMsg && (
+            <span className="text-xs font-semibold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
+              ⚠️ {studentErrorMsg}
+            </span>
+          )}
+        </div>
+
+        {/* 수강생 목록 그리드 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {studentsList.map((student) => {
+            const isEditingThis = editingStudentId === student.id;
+
+            return (
+              <div
+                key={student.id}
+                className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2 ${
+                  isEditingThis
+                    ? "bg-blue-50/70 border-blue-300 ring-2 ring-blue-100"
+                    : "bg-slate-50/60 border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                {/* 번호 배지 */}
+                <span className="font-mono text-[11px] font-bold text-slate-400 px-1.5 py-0.5 rounded bg-white border border-slate-200 shrink-0">
+                  {String(student.number).padStart(2, "0")}
+                </span>
+
+                {/* 이름 및 인라인 편집 폼 */}
+                {isEditingThis ? (
+                  <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                    <input
+                      type="text"
+                      value={editingStudentName}
+                      onChange={(e) => setEditingStudentName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSaveStudentName(student.id);
+                        } else if (e.key === "Escape") {
+                          handleCancelEditStudent();
+                        }
+                      }}
+                      maxLength={30}
+                      autoFocus
+                      aria-label={`${student.number}번 ${roleLabels.participant} 이름 수정`}
+                      className="w-full px-2 py-1 rounded border border-blue-400 text-xs font-bold text-slate-900 bg-white focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveStudentName(student.id)}
+                      className="px-2 py-1 rounded bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 transition-colors shrink-0 cursor-pointer"
+                    >
+                      저장
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelEditStudent}
+                      className="px-2 py-1 rounded bg-slate-200 text-slate-700 text-[11px] font-bold hover:bg-slate-300 transition-colors shrink-0 cursor-pointer"
+                    >
+                      취소
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <span
+                      className="flex-1 text-xs font-bold text-slate-800 truncate"
+                      title={student.name}
+                    >
+                      {student.name}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => handleStartEditStudent(student.id, student.name)}
+                      className="px-2 py-1 rounded text-[11px] font-semibold text-slate-600 hover:text-blue-600 hover:bg-white border border-transparent hover:border-slate-200 transition-all shrink-0 cursor-pointer"
+                      title={`${student.name}의 이름을 수정합니다`}
+                    >
+                      이름 수정
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <p className="mt-3 text-[11px] text-slate-400">
+          💡 {roleLabels.participant} 이름을 수정해도 진행도(Progress), 이해도, 도움 요청, 피드백 등 모든 학습 데이터는 안전하게 보존됩니다.
+        </p>
       </div>
     </div>
   );

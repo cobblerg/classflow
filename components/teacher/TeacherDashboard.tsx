@@ -124,6 +124,7 @@ export default function TeacherDashboard() {
       {/* 5. 학급 기본 설정 패널 (4순위 학급 메타정보 설정) */}
       <ClassSettingsPanel
         settings={settings}
+        students={students}
         onSettingsUpdated={handleSettingsUpdated}
       />
     </div>
