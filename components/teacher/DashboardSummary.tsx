@@ -70,51 +70,29 @@ export default function DashboardSummary({ settings }: DashboardSummaryProps) {
         </div>
       </div>
 
-      {/* 2. 수업명 및 규모(학생 수, 차시 수) 표시 */}
-      <div className="pt-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+      {/* 2. 수업명 및 규모(학생 수, 차시 수) 표시 (간소화 및 긴 학급명 줄바꿈 방어) */}
+      <div className="pt-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="min-w-0">
           <span className="text-xs font-medium text-slate-400 block mb-0.5">
             진행 중인 수업
           </span>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight break-keep break-words">
             {settings.className}
           </h2>
         </div>
 
         {/* 학생 수 / 차시 수 요약 배지 */}
-        <div className="flex items-center gap-2.5 text-xs font-semibold text-slate-700">
-          <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-1.5">
-            <span className="text-slate-400 font-normal">전체 학생</span>
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 shrink-0">
+          <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-1.5">
+            <span className="text-slate-400 font-normal">학생</span>
             <strong className="text-slate-900 font-bold">{settings.studentCount}명</strong>
           </div>
-          <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-1.5">
-            <span className="text-slate-400 font-normal">전체 차시</span>
+          <span className="text-slate-300">•</span>
+          <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-1.5">
+            <span className="text-slate-400 font-normal">차시</span>
             <strong className="text-slate-900 font-bold">{settings.lessonCount}개</strong>
           </div>
         </div>
-      </div>
-
-      {/* 3. 셀 상태 안내 범례(Legend) */}
-      <div className="mt-4 pt-3 border-t border-slate-100/80 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
-        <span className="font-semibold text-slate-700">상태 아이콘:</span>
-        <span className="inline-flex items-center gap-1">
-          <span>⚪</span> 시작 전
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span>🟡</span> 진행 중
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span>🟢</span> 완료
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span>🔴</span> 도움 필요
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span>🤔</span> 어려움
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span>🔒</span> 비공개 차시
-        </span>
       </div>
     </header>
   );

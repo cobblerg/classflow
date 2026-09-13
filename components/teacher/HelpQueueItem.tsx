@@ -19,12 +19,12 @@ export default function HelpQueueItem({ item, onResolve }: HelpQueueItemProps) {
 
   return (
     <div
-      className={`p-4 rounded-2xl border transition-all ${
+      className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
         item.priority === 1
-          ? "bg-amber-50/40 border-amber-200/80 shadow-2xs hover:border-amber-300"
+          ? "bg-amber-50/70 border-amber-300 border-l-4 border-l-amber-500 shadow-sm hover:border-amber-400"
           : item.priority === 2
-          ? "bg-rose-50/30 border-rose-200/70 shadow-2xs hover:border-rose-300"
-          : "bg-indigo-50/20 border-slate-200/80 shadow-2xs hover:border-slate-300"
+          ? "bg-rose-50/40 border-rose-200/90 border-l-4 border-l-rose-400 shadow-2xs hover:border-rose-300"
+          : "bg-indigo-50/30 border-slate-200 border-l-4 border-l-indigo-300 shadow-2xs hover:border-slate-300"
       }`}
     >
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">

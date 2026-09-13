@@ -95,30 +95,30 @@ export default function TeacherDashboard() {
       {/* 1. 상단 요약 헤더 */}
       <DashboardSummary settings={settings} />
 
-      {/* 2. 학급 기본 설정 패널 (수업명 수정 등, STEP 12) */}
-      <ClassSettingsPanel
-        settings={settings}
-        onSettingsUpdated={handleSettingsUpdated}
-      />
-
-      {/* 3. 차시 공개 관리 패널 (공개/비공개 토글, STEP 12) */}
-      <LessonVisibilityManager
-        lessons={lessons}
-        onToggleLesson={handleToggleLesson}
-      />
-
-      {/* 4. 실시간 도움 요청 대기열 (Help Queue, STEP 10) */}
+      {/* 2. 실시간 도움 요청 대기열 (Help Queue - 1순위 즉각 조치 영역) */}
       <HelpQueue
         items={helpQueueItems}
         onResolve={handleResolveHelp}
       />
 
-      {/* 5. 학생 × 차시 진행도 격자판 (Progress Grid) */}
+      {/* 3. 학생 × 차시 진행도 격자판 (Progress Grid - 2순위 전체 학습 상황 영역) */}
       <ProgressGrid
         students={students}
         lessons={lessons}
         progress={progress}
         onToggleLesson={handleToggleLesson}
+      />
+
+      {/* 4. 차시 공개 관리 패널 (3순위 차시 운영 관리) */}
+      <LessonVisibilityManager
+        lessons={lessons}
+        onToggleLesson={handleToggleLesson}
+      />
+
+      {/* 5. 학급 기본 설정 패널 (4순위 학급 메타정보 설정) */}
+      <ClassSettingsPanel
+        settings={settings}
+        onSettingsUpdated={handleSettingsUpdated}
       />
     </div>
   );

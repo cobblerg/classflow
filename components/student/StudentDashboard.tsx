@@ -77,7 +77,7 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
   const { settings, lessons, progress, helpRequests } = data!;
 
   return (
-    <div className="w-full max-w-2xl mx-auto flex flex-col">
+    <div className="w-full max-w-4xl mx-auto flex flex-col">
       {/* 4. 상단 내비게이션 바 */}
       <div className="flex items-center justify-between gap-3 mb-6">
         <Link
@@ -100,7 +100,7 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
         <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 mb-2">
           <span>ClassFlow</span>
           <span>•</span>
-          <span>{settings.className}</span>
+          <span className="truncate max-w-[280px]">{settings.className}</span>
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-1">
@@ -111,7 +111,7 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
         </p>
       </header>
 
-      {/* 6. 나의 학습 차시 목록 섹션 */}
+      {/* 6. 나의 학습 차시 목록 섹션 (반응형 1/2/3열 그리드, 요구사항 #27) */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between px-1 mb-1">
           <h2 className="text-base font-bold text-slate-800">
@@ -135,31 +135,33 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
           </div>
         )}
 
-        {/* 차시 카드 렌더링 */}
-        {lessons.map((lesson) => {
-          // 해당 학생과 차시에 해당하는 진행 상태 매칭
-          const lessonProgress = progress.find(
-            (p) => p.studentId === student.id && p.lessonId === lesson.id
-          );
+        {/* 차시 카드 렌더링 (반응형 그리드) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {lessons.map((lesson) => {
+            // 해당 학생과 차시에 해당하는 진행 상태 매칭
+            const lessonProgress = progress.find(
+              (p) => p.studentId === student.id && p.lessonId === lesson.id
+            );
 
-          // 해당 학생과 차시에 대기 중인 도움 요청이 있는지 확인 (STEP 9)
-          const hasWaitingHelp = helpRequests?.some(
-            (r) =>
-              r.studentId === student.id &&
-              r.lessonId === lesson.id &&
-              r.status === "waiting"
-          );
+            // 해당 학생과 차시에 대기 중인 도움 요청이 있는지 확인 (STEP 9)
+            const hasWaitingHelp = helpRequests?.some(
+              (r) =>
+                r.studentId === student.id &&
+                r.lessonId === lesson.id &&
+                r.status === "waiting"
+            );
 
-          return (
-            <LessonCard
-              key={lesson.id}
-              lesson={lesson}
-              progress={lessonProgress}
-              studentId={student.id}
-              hasWaitingHelpRequest={hasWaitingHelp}
-            />
-          );
-        })}
+            return (
+              <LessonCard
+                key={lesson.id}
+                lesson={lesson}
+                progress={lessonProgress}
+                studentId={student.id}
+                hasWaitingHelpRequest={hasWaitingHelp}
+              />
+            );
+          })}
+        </div>
       </section>
     </div>
   );

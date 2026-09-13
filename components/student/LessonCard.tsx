@@ -116,16 +116,16 @@ export default function LessonCard({
   return (
     <Link
       href={`/student/${studentId}/lesson/${lesson.id}`}
-      className={`group block w-full rounded-2xl border p-4 sm:p-5 transition-all active:scale-[0.99] ${statusInfo.cardStyle}`}
+      className={`group block w-full rounded-2xl border p-4 sm:p-4.5 transition-all active:scale-[0.99] ${statusInfo.cardStyle}`}
     >
-      <div className="flex items-center justify-between gap-3">
-        {/* 좌측: 차시 정보 */}
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* 차시 정보 */}
+        <div className="flex items-center gap-2.5 min-w-0">
           <span className="text-xl sm:text-2xl shrink-0" role="img" aria-label={statusInfo.label}>
             {statusInfo.icon}
           </span>
           <div className="min-w-0">
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
               {lesson.title}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
@@ -134,20 +134,17 @@ export default function LessonCard({
           </div>
         </div>
 
-        {/* 우측: 상태 뱃지 및 학습하기 유도 버튼 */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* 상태 뱃지 및 액션 */}
+        <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-center">
           {hasWaitingHelpRequest && (
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
-              🙋 도움 요청 중
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+              🙋 대기 중
             </span>
           )}
           <span
-            className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${statusInfo.badgeStyle}`}
+            className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border ${statusInfo.badgeStyle}`}
           >
             {statusInfo.label}
-          </span>
-          <span className="text-xs font-bold text-blue-600 group-hover:translate-x-0.5 transition-transform hidden sm:inline-block">
-            학습하기 →
           </span>
         </div>
       </div>
