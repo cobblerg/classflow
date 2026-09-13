@@ -5,10 +5,16 @@ interface LessonCardProps {
   lesson: Lesson;       // 차시 정보
   progress?: Progress;  // 해당 학생의 진행 상태 데이터
   studentId: string;    // 학생 ID (상세 경로 이동용)
+  hasWaitingHelpRequest?: boolean; // 대기 중인 도움 요청 유무 (STEP 9)
 }
 
 // 학생 Dashboard의 개별 차시 카드 컴포넌트
-export default function LessonCard({ lesson, progress, studentId }: LessonCardProps) {
+export default function LessonCard({
+  lesson,
+  progress,
+  studentId,
+  hasWaitingHelpRequest,
+}: LessonCardProps) {
   // 1. 상태 및 뱃지 스타일 계산 (우선순위: 비공개 -> 도움 필요 -> 완료 -> 진행 중 -> 시작 전)
   const getStatusInfo = () => {
     // 1순위: 비공개 차시
@@ -130,6 +136,11 @@ export default function LessonCard({ lesson, progress, studentId }: LessonCardPr
 
         {/* 우측: 상태 뱃지 및 학습하기 유도 버튼 */}
         <div className="flex items-center gap-2 shrink-0">
+          {hasWaitingHelpRequest && (
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+              🙋 도움 요청 중
+            </span>
+          )}
           <span
             className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${statusInfo.badgeStyle}`}
           >

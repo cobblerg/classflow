@@ -19,6 +19,7 @@ import type {
 } from "@/types";
 import ProgressStatusSelector from "./ProgressStatusSelector";
 import UnderstandingSelector from "./UnderstandingSelector";
+import HelpRequestPanel from "./HelpRequestPanel";
 
 interface LessonDetailProps {
   studentId: string; // 학생 고유 ID
@@ -212,6 +213,22 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
     }, 2500);
   };
 
+  // 10. 현재 학생 × 차시의 대기 중인 도움 요청 조회 및 동기화 (STEP 9)
+  const currentHelpRequest =
+    data?.helpRequests?.find(
+      (r) =>
+        r.studentId === student.id &&
+        r.lessonId === lesson.id &&
+        r.status === "waiting"
+    ) || null;
+
+  const handleHelpRequestChange = () => {
+    const latestData = getCurrentClassData();
+    if (latestData) {
+      setData(latestData);
+    }
+  };
+
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col pb-12">
       {/* 상단 내비게이션 바 */}
@@ -321,6 +338,14 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
           💡 이해 상태를 선택하면 선생님 대시보드에 즉시 반영되어 필요할 때 도움을 받을 수 있습니다.
         </p>
       </section>
+
+      {/* 5. 선생님께 도움 요청 섹션 (STEP 9) */}
+      <HelpRequestPanel
+        studentId={student.id}
+        lessonId={lesson.id}
+        currentHelpRequest={currentHelpRequest}
+        onHelpRequestChange={handleHelpRequestChange}
+      />
 
       {/* 하단 내비게이션 버튼 */}
       <div className="pt-2">

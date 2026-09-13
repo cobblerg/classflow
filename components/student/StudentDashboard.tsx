@@ -74,7 +74,7 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
     );
   }
 
-  const { settings, lessons, progress } = data!;
+  const { settings, lessons, progress, helpRequests } = data!;
 
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col">
@@ -129,12 +129,21 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
             (p) => p.studentId === student.id && p.lessonId === lesson.id
           );
 
+          // 해당 학생과 차시에 대기 중인 도움 요청이 있는지 확인 (STEP 9)
+          const hasWaitingHelp = helpRequests?.some(
+            (r) =>
+              r.studentId === student.id &&
+              r.lessonId === lesson.id &&
+              r.status === "waiting"
+          );
+
           return (
             <LessonCard
               key={lesson.id}
               lesson={lesson}
               progress={lessonProgress}
               studentId={student.id}
+              hasWaitingHelpRequest={hasWaitingHelp}
             />
           );
         })}

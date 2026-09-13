@@ -1,4 +1,9 @@
-import type { ClassFlowData, ProgressStatus, Understanding } from "@/types";
+import type {
+  ClassFlowData,
+  ProgressStatus,
+  Understanding,
+  HelpRequest,
+} from "@/types";
 import {
   saveClassFlowData,
   loadClassFlowData,
@@ -132,6 +137,110 @@ export function updateUnderstanding(
   saveClassFlowData(inMemoryClassData);
 
   return inMemoryClassData;
+}
+
+/**
+ * 특정 학생과 차시에 대한 현재 대기 중(waiting)인 도움 요청을 조회하는 헬퍼 함수
+ */
+export function getWaitingHelpRequest(
+  studentId: string,
+  lessonId: string
+): HelpRequest | null {
+  const current = getCurrentClassData();
+  if (!current || !Array.isArray(current.helpRequests)) return null;
+
+  return (
+    current.helpRequests.find(
+      (r) =>
+        r.studentId === studentId &&
+        r.lessonId === lessonId &&
+        r.status === "waiting"
+    ) || null
+  );
+}
+
+/**
+ * 학생의 도움 요청(HelpRequest)을 새로 생성하고 localStorage에 저장하는 함수 (STEP 9)
+ * (중복 방지: 동일 학생 × 동일 차시에 이미 waiting 상태가 있다면 생성하지 않음)
+ */
+export function createHelpRequest(
+  studentId: string,
+  lessonId: string,
+  message: string
+): HelpRequest | null {
+  const current = getCurrentClassData();
+  if (!current) return null;
+
+  // 1. 이미 동일 학생/차시에 대기 중인 요청이 있는지 중복 체크 (Test C)
+  const existingWaiting = current.helpRequests.find(
+    (r) =>
+      r.studentId === studentId &&
+      r.lessonId === lessonId &&
+      r.status === "waiting"
+  );
+  if (existingWaiting) {
+    console.warn("[HelpRequest] 이미 대기 중인 도움 요청이 존재합니다.");
+    return null;
+  }
+
+  // 2. 충돌 위험 없는 고유 UUID 생성
+  const newId =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `help_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+  const newRequest: HelpRequest = {
+    id: newId,
+    studentId,
+    lessonId,
+    message: message.trim() || "도움이 필요합니다.",
+    status: "waiting",
+    requestedAt: new Date().toISOString(),
+  };
+
+  // 3. 불변성을 유지하며 helpRequests 배열에 새 요청 추가
+  inMemoryClassData = {
+    ...current,
+    helpRequests: [...current.helpRequests, newRequest],
+  };
+
+  // 4. localStorage에 즉시 영속화
+  saveClassFlowData(inMemoryClassData);
+
+  return newRequest;
+}
+
+/**
+ * 학생이 자신의 대기 중(waiting)인 도움 요청을 취소하고 localStorage에 저장하는 함수 (STEP 9)
+ * (완전 삭제가 아니라 status를 'cancelled'로 변경하여 이력 보존)
+ */
+export function cancelHelpRequest(helpRequestId: string): boolean {
+  const current = getCurrentClassData();
+  if (!current) return false;
+
+  let updated = false;
+  const updatedHelpRequests = current.helpRequests.map((r) => {
+    if (r.id === helpRequestId && r.status === "waiting") {
+      updated = true;
+      return {
+        ...r,
+        status: "cancelled" as const,
+      };
+    }
+    return r;
+  });
+
+  if (!updated) return false;
+
+  inMemoryClassData = {
+    ...current,
+    helpRequests: updatedHelpRequests,
+  };
+
+  // localStorage에 취소 상태 즉시 영속화
+  saveClassFlowData(inMemoryClassData);
+
+  return true;
 }
 
 /**
