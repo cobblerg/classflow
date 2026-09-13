@@ -244,6 +244,42 @@ export function cancelHelpRequest(helpRequestId: string): boolean {
 }
 
 /**
+ * 교사가 학생의 대기 중인 도움 요청을 완료(resolved) 처리하고 localStorage에 저장하는 함수 (STEP 10)
+ * ※ 주의: 도움을 주었더라도 학생의 이해도 자가진단(understanding: need_help)은 절대 변경하지 않습니다.
+ */
+export function resolveHelpRequest(helpRequestId: string): boolean {
+  const current = getCurrentClassData();
+  if (!current) return false;
+
+  const now = new Date().toISOString();
+  let updated = false;
+
+  const updatedHelpRequests = current.helpRequests.map((r) => {
+    if (r.id === helpRequestId && r.status === "waiting") {
+      updated = true;
+      return {
+        ...r,
+        status: "resolved" as const,
+        resolvedAt: now,
+      };
+    }
+    return r;
+  });
+
+  if (!updated) return false;
+
+  inMemoryClassData = {
+    ...current,
+    helpRequests: updatedHelpRequests,
+  };
+
+  // localStorage에 완료 상태 즉시 영속화
+  saveClassFlowData(inMemoryClassData);
+
+  return true;
+}
+
+/**
  * 메모리와 브라우저 localStorage의 모든 ClassFlow 데이터를 완전히 초기화하는 함수
  */
 export function clearCurrentClassData(): void {
