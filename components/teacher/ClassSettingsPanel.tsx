@@ -187,6 +187,13 @@ export default function ClassSettingsPanel({
                     {settings.className}
                   </strong>
                 </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">강의 코드:</span>
+                  <code className="px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-800 font-mono font-bold tracking-wider text-xs select-all">
+                    {settings.courseCode || "DEMO24"}
+                  </code>
+                  <span className="text-[10px] text-slate-400 font-normal">(수강생 접속용 식별자 · 읽기 전용)</span>
+                </div>
                 <div className="flex items-center gap-3 text-xs text-slate-600">
                   <span>지도자: <strong className="text-slate-800 font-semibold">{roleLabels.instructor}</strong></span>
                   <span>•</span>

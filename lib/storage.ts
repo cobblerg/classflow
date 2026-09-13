@@ -1,4 +1,5 @@
 import type { ClassFlowData } from "@/types";
+import { generateCourseCode } from "./courseCode";
 
 // 로컬 스토리지 키 상수 (프로젝트 전역에서 공통으로 사용)
 export const STORAGE_KEY = "classflow-mvp-data";
@@ -59,11 +60,21 @@ export function loadClassFlowData(): ClassFlowData | null {
       participant: parsed.settings?.roleLabels?.participant?.trim() || "수강생",
     };
 
+    // 이전 버전 데이터 호환: settings.courseCode가 누락된 경우 안전하게 생성 (STEP 17)
+    let courseCode = typeof parsed.settings?.courseCode === "string" ? parsed.settings.courseCode.trim() : "";
+    let needsPersistence = false;
+
+    if (!courseCode) {
+      courseCode = generateCourseCode();
+      needsPersistence = true;
+    }
+
     // 향후 확장을 대비하여 빈 배열 필드가 누락되지 않도록 보정
     const validatedData: ClassFlowData = {
       settings: {
         ...parsed.settings,
         roleLabels: normalizedRoleLabels,
+        courseCode,
       },
       students: parsed.students,
       lessons: parsed.lessons,
@@ -72,6 +83,11 @@ export function loadClassFlowData(): ClassFlowData | null {
       helpRequests: Array.isArray(parsed.helpRequests) ? parsed.helpRequests : [],
       feedback: Array.isArray(parsed.feedback) ? parsed.feedback : [],
     };
+
+    // 새로 생성된 courseCode가 있을 경우 localStorage에 1회 동기화하여 이후 F5 시에도 변경되지 않도록 영속화 (요구사항 #30, #31)
+    if (needsPersistence) {
+      saveClassFlowData(validatedData);
+    }
 
     return validatedData;
   } catch (error) {

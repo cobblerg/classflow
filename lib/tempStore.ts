@@ -42,6 +42,13 @@ export function getCurrentClassData(): ClassFlowData | null {
     };
   }
 
+  // 이전 버전 데이터에서 courseCode 누락 대비 (STEP 17)
+  if (inMemoryClassData && !inMemoryClassData.settings.courseCode) {
+    const { generateCourseCode } = require("./courseCode");
+    inMemoryClassData.settings.courseCode = generateCourseCode();
+    saveClassFlowData(inMemoryClassData);
+  }
+
   return inMemoryClassData;
 }
 

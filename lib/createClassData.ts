@@ -5,6 +5,7 @@ import type {
   Lesson,
   Progress,
 } from "@/types";
+import { generateCourseCode } from "./courseCode";
 
 /**
  * 수업 설정 정보(ClassSettings)를 기반으로
@@ -114,6 +115,7 @@ export function createClassData(settings: ClassSettings): ClassFlowData {
   return {
     settings: {
       ...settings,
+      courseCode: settings.courseCode || generateCourseCode(),
       createdAt: settings.createdAt || now,
     },
     students,

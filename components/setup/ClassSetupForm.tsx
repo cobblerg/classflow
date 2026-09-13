@@ -7,6 +7,7 @@ import { createClassData } from "@/lib/createClassData";
 import { createDemoClassData } from "@/data/demoData";
 import { setCurrentClassData, getCurrentClassData } from "@/lib/tempStore";
 import { DEFAULT_ROLE_LABELS, SCHOOL_ROLE_LABELS } from "@/lib/roleLabels";
+import { generateCourseCode } from "@/lib/courseCode";
 import type { ClassSettings, RoleLabels } from "@/types";
 
 type PresetType = "general" | "school" | "custom";
@@ -116,6 +117,7 @@ export default function ClassSetupForm() {
       lessonCount: Number(lessonCount),
       createdAt: new Date().toISOString(),
       roleLabels,
+      courseCode: generateCourseCode(),
     };
 
     // 1. lib/createClassData를 통해 학생(수강생), 차시, Progress 데이터 동적 생성

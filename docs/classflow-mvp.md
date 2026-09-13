@@ -1618,5 +1618,55 @@ STEP 15
       ↓
 MVP 검증
       ↓
+STEP 16
+강사/수강생 범용화 (역할 명칭 설정)
+      ↓
+STEP 17
+강의 코드 생성 + 입장 UX (localStorage MVP)
+      ↓
 Supabase 여부 결정
 ```
+
+---
+
+# PART 10. STEP 17 강의 코드 UX 및 향후 백엔드 연동 설계 메모
+
+## 1. 현재 localStorage MVP의 한계
+- **현재 동작 방식**: 단일 브라우저의 `localStorage`에 저장된 현재 강의의 `settings.courseCode`를 대조하여 수강생 입장 플로우(`/join` ➡️ `/student`)의 사용성을 검증함.
+- **한계**: 강사 기기에서 생성된 코드를 다른 기기(수강생 태블릿)에서 입력하여 원격으로 접속하는 실제 네트워크 통신은 지원하지 않음.
+
+## 2. 향후 Supabase 연동 시 변경 사항
+- **다중 기기 접속**: 다른 기기 브라우저에서 `courseCode`를 입력하면 중앙 데이터베이스에서 해당 강의를 조회하여 접속 가능.
+- **향후 DB 스키마 구조 (예시)**:
+  ```sql
+  -- 강의(코스) 테이블
+  CREATE TABLE courses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    course_code VARCHAR(6) UNIQUE NOT NULL,
+    instructor_id UUID REFERENCES auth.users(id),
+    role_labels JSONB DEFAULT '{"instructor": "강사", "participant": "수강생"}'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT now()
+  );
+
+  -- 참여자(수강생) 테이블
+  CREATE TABLE participants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    student_number INT NOT NULL,
+    name TEXT NOT NULL
+  );
+  ```
+- **향후 수강생 접속 흐름**:
+  ```text
+  수강생이 /join에서 courseCode 입력
+      ↓
+  Supabase `courses` 테이블에서 `course_code` 일치 레코드 조회 (SELECT * FROM courses WHERE course_code = :code)
+      ↓
+  강의 메타데이터 및 `course_id` 획득
+      ↓
+  해당 강의의 참여자 목록(`participants`) 및 과제 목록 조회
+      ↓
+  참여자 선택 및 학습 진행
+  ```
+

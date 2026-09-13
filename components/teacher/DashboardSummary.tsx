@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearCurrentClassData } from "@/lib/tempStore";
@@ -12,6 +15,36 @@ interface DashboardSummaryProps {
 export default function DashboardSummary({ settings }: DashboardSummaryProps) {
   const router = useRouter();
   const roleLabels = getRoleLabels(settings);
+  const [copied, setCopied] = useState<boolean>(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+
+  // 강의 코드 클립보드 복사 핸들러 (STEP 17)
+  const handleCopyCode = async () => {
+    if (!settings.courseCode) return;
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(settings.courseCode);
+      } else {
+        // Fallback: execCommand 지원
+        const textArea = document.createElement("textarea");
+        textArea.value = settings.courseCode;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+
+      setCopied(true);
+      setCopyError(null);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopyError("복사할 수 없습니다. 코드를 직접 선택해 주세요.");
+      setTimeout(() => setCopyError(null), 3000);
+    }
+  };
 
   // 테스트 데이터 전체 초기화 핸들러 (STEP 8)
   const handleReset = () => {
@@ -70,8 +103,8 @@ export default function DashboardSummary({ settings }: DashboardSummaryProps) {
         </div>
       </div>
 
-      {/* 2. 강의명 및 규모(수강생 수, 차시 수) 표시 (간소화 및 긴 강의명 줄바꿈 방어) */}
-      <div className="pt-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+      {/* 2. 강의명, 강의 코드, 규모(수강생 수, 차시 수) 표시 (간소화 및 긴 강의명 줄바꿈 방어) */}
+      <div className="pt-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="min-w-0">
           <span className="text-xs font-medium text-slate-400 block mb-0.5">
             진행 중인 강의
@@ -81,19 +114,60 @@ export default function DashboardSummary({ settings }: DashboardSummaryProps) {
           </h2>
         </div>
 
-        {/* 수강생 수 / 차시 수 요약 배지 */}
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 shrink-0">
-          <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-1.5">
-            <span className="text-slate-400 font-normal">{roleLabels.participant}</span>
-            <strong className="text-slate-900 font-bold">{settings.studentCount}명</strong>
+        {/* 강의 코드 및 인원/차시 규모 컨트롤 바 */}
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {/* 강의 코드 박스 (프로젝터 가독성 고려, STEP 17) */}
+          <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-blue-50/80 border border-blue-200 shadow-2xs">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider leading-tight">
+                강의 코드
+              </span>
+              <span
+                className="font-mono text-base sm:text-lg font-black text-blue-900 tracking-widest leading-none select-all"
+                title="수강생 접속용 6자리 코드"
+              >
+                {settings.courseCode || "DEMO24"}
+              </span>
+            </div>
+
+            {/* 코드 복사 버튼 */}
+            <button
+              type="button"
+              onClick={handleCopyCode}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-[0.95] flex items-center gap-1 cursor-pointer border ${
+                copied
+                  ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+                  : "bg-white text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300"
+              }`}
+              title="강의 코드를 클립보드에 복사합니다"
+            >
+              {copied ? "✓ 복사됨" : "코드 복사"}
+            </button>
           </div>
-          <span className="text-slate-300">•</span>
-          <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-1.5">
-            <span className="text-slate-400 font-normal">차시</span>
-            <strong className="text-slate-900 font-bold">{settings.lessonCount}개</strong>
+
+          {/* 수강생 수 / 차시 수 요약 배지 */}
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-1.5">
+              <span className="text-slate-400 font-normal">{roleLabels.participant}</span>
+              <strong className="text-slate-900 font-bold">{settings.studentCount}명</strong>
+            </div>
+            <span className="text-slate-300">•</span>
+            <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-1.5">
+              <span className="text-slate-400 font-normal">차시</span>
+              <strong className="text-slate-900 font-bold">{settings.lessonCount}개</strong>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* 클립보드 복사 실패 시 안내 (STEP 17) */}
+      {copyError && (
+        <div className="mt-2 text-right">
+          <span className="text-xs font-medium text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
+            ⚠️ {copyError}
+          </span>
+        </div>
+      )}
     </header>
   );
 }

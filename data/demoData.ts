@@ -308,6 +308,7 @@ export function createDemoClassData(): ClassFlowData {
         instructor: "강사",
         participant: "수강생",
       },
+      courseCode: "DEMO24",
     },
     students,
     lessons,

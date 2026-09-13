@@ -29,31 +29,45 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* 액션 버튼 영역 */}
-        <div className="flex flex-col gap-3">
-          {/* 새 강의 만들기 버튼 */}
-          <Link
-            href="/setup"
-            className="w-full inline-flex items-center justify-center px-6 py-4 rounded-xl text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.99] transition-all shadow-md shadow-blue-500/20"
-          >
-            새 강의 만들기
-          </Link>
+        {/* 액션 카드 영역: 강사와 수강생 역할 분리 (요구사항 #14, #32) */}
+        <div className="flex flex-col gap-3.5 mb-6">
+          {/* 1. 수강생/학습자 입장 섹션 */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-blue-50/70 border border-blue-100/90 flex flex-col items-center gap-2">
+            <span className="text-xs font-bold text-blue-800">
+              수강생 / 학생이라면
+            </span>
+            <Link
+              href="/join"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-base font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.99] transition-all shadow-md shadow-blue-500/20"
+            >
+              <span>🔑</span>
+              <span>강의 코드로 입장하기</span>
+            </Link>
+            <span className="text-[11px] text-slate-500">
+              강사에게 안내받은 6자리 코드를 입력하여 입장합니다.
+            </span>
+          </div>
 
-          {/* 학습자 화면 이동 버튼 */}
-          <Link
-            href="/student"
-            className="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 active:scale-[0.99] transition-all"
-          >
-            👥 수강생 / 학생 화면
-          </Link>
-
-          {/* 대시보드 바로가기 버튼 */}
-          <Link
-            href="/teacher"
-            className="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 active:scale-[0.99] transition-all"
-          >
-            📊 강사 / 교사 대시보드
-          </Link>
+          {/* 2. 강사/교사 강의 개설 및 관리 섹션 */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col items-center gap-2">
+            <span className="text-xs font-bold text-slate-700">
+              강사 / 교사라면
+            </span>
+            <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Link
+                href="/setup"
+                className="w-full inline-flex items-center justify-center px-4 py-3 rounded-xl text-sm font-semibold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300/80 active:scale-[0.99] transition-all shadow-2xs"
+              >
+                ➕ 강의 만들기
+              </Link>
+              <Link
+                href="/teacher"
+                className="w-full inline-flex items-center justify-center px-4 py-3 rounded-xl text-sm font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300/80 active:scale-[0.99] transition-all shadow-2xs"
+              >
+                📊 대시보드 바로가기
+              </Link>
+            </div>
+          </div>
         </div>
 
         {/* 하단 버전 표시 */}
