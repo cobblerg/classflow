@@ -18,6 +18,11 @@ import {
   getParticipantLessonProgress,
   saveParticipantLessonProgress,
 } from "@/lib/firestore/progress";
+import {
+  getActiveHelpRequest,
+  createHelpRequest,
+  cancelHelpRequest,
+} from "@/lib/firestore/helpRequests";
 import type {
   ClassFlowData,
   Student,
@@ -25,6 +30,7 @@ import type {
   Progress,
   ProgressStatus,
   Understanding,
+  HelpRequest,
   RoleLabels,
 } from "@/types";
 import ProgressStatusSelector from "./ProgressStatusSelector";
@@ -36,7 +42,7 @@ interface LessonDetailProps {
   lessonId: string; // 차시 고유 ID
 }
 
-// 학생 과제 상세 화면 컴포넌트 (STEP 24: Firestore Progress/Understanding 실시간 연동)
+// 학생 과제 상세 화면 컴포넌트 (STEP 25: Firestore HelpRequest 연동)
 export default function LessonDetail({ studentId, lessonId }: LessonDetailProps) {
   // 온라인 모드 세션
   const [joinedSession, setJoinedSession] = useState<JoinedCourseSession | null>(null);
@@ -46,6 +52,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
   const [student, setStudent] = useState<Student | null>(null);
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
+  const [onlineHelpRequest, setOnlineHelpRequest] = useState<HelpRequest | null>(null);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -77,13 +84,14 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
 
       setIsLoading(true);
 
-      // Firestore에서 participants, lessons, 그리고 현재 차시 progress 동시 로드 (새로고침 F5 복원 지원, 요구사항 #26, #54)
+      // Firestore에서 participants, lessons, progress, 그리고 active helpRequest 동시 로드 (새로고침 F5 복원 지원, 요구사항 #31, #52)
       Promise.all([
         getCourseParticipants(session.courseId),
         getCourseLessons(session.courseId),
         getParticipantLessonProgress(session.courseId, studentId, lessonId),
+        getActiveHelpRequest(session.courseId, studentId, lessonId),
       ])
-        .then(([participants, lessons, currentProgress]) => {
+        .then(([participants, lessons, currentProgress, activeHelp]) => {
           const foundStudent = participants.find((p) => p.id === studentId);
           if (!foundStudent) {
             setErrorType("student_not_found");
@@ -100,8 +108,9 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
           }
           setLesson(foundLesson);
 
-          // Firestore에서 로드한 Progress 설정 (문서 없으면 기본값 not_started, null, 요구사항 #10, #27)
+          // Progress 및 대기 중인 HelpRequest 설정
           setProgress(currentProgress);
+          setOnlineHelpRequest(activeHelp);
           setIsLoading(false);
         })
         .catch((err) => {
@@ -110,7 +119,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
           setIsLoading(false);
         });
     } else {
-      // 2. 로컬스토리지 모드 확인 (기존 모드 유지, 요구사항 #17)
+      // 2. 로컬스토리지 모드 확인 (기존 모드 유지, 요구사항 #16, #61)
       setIsLoading(false);
       const currentData = getCurrentClassData();
 
@@ -180,7 +189,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
     );
   }
 
-  // 다른 수강생 URL 접근 차단 (요구사항 #33, #34)
+  // 다른 수강생 URL 접근 차단 (요구사항 #33)
   if (errorType === "unauthorized_participant") {
     return (
       <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-amber-200 shadow-sm text-center">
@@ -222,7 +231,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
     );
   }
 
-  // 예외 처리 B: 존재하지 않는 lessonId
+  // 예외 처리 B: 존재하지 않는 lessonId (요구사항 #35)
   if (errorType === "lesson_not_found" || !lesson) {
     return (
       <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm text-center">
@@ -243,7 +252,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
     );
   }
 
-  // 예외 처리 C: 비공개 차시 접근 차단 (요구사항 #37, #59)
+  // 예외 처리 C: 비공개 차시 접근 차단 (요구사항 #36)
   if (!lesson.published) {
     return (
       <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm text-center">
@@ -264,15 +273,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
     );
   }
 
-  // 안내 알림 헬퍼
-  const showNotice = (msg: string) => {
-    setOnlineNotice(msg);
-    setTimeout(() => {
-      setOnlineNotice(null);
-    }, 3500);
-  };
-
-  // 8. 진행 상태 변경 핸들러 (STEP 24: Firestore 연동)
+  // 8. 진행 상태 변경 핸들러
   const handleStatusChange = async (newStatus: ProgressStatus) => {
     if (!student || !lesson || isSaving) return;
 
@@ -282,7 +283,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
       completed: "완료",
     };
 
-    // [A] Firestore 온라인 입장 모드인 경우 (요구사항 #16, #19)
+    // [A] Firestore 온라인 입장 모드인 경우
     if (joinedSession) {
       setIsSaving(true);
       setFeedbackError(null);
@@ -295,13 +296,11 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
           status: newStatus,
         });
 
-        // 상태 업데이트 및 성공 안내 (요구사항 #19)
         setProgress(savedProgress);
         setFeedbackMsg(`진행 상태가 '${labelMap[newStatus]}'(으)로 저장되었습니다.`);
         setTimeout(() => setFeedbackMsg(null), 2500);
       } catch (err: unknown) {
         console.error("[ClassFlow] Progress 저장 오류:", err);
-        // 저장 실패 UX (요구사항 #25, #60)
         setFeedbackError("진행 상태를 저장하지 못했습니다. 다시 시도해 주세요.");
         setTimeout(() => setFeedbackError(null), 4000);
       } finally {
@@ -310,7 +309,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
       return;
     }
 
-    // [B] 로컬스토리지 모드인 경우 (기존 모드 유지, 요구사항 #17)
+    // [B] 로컬스토리지 모드인 경우
     const updatedData = updateProgressStatus(student.id, lesson.id, newStatus);
     if (updatedData) {
       setLocalData(updatedData);
@@ -326,7 +325,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
     setTimeout(() => setFeedbackMsg(null), 2500);
   };
 
-  // 9. 학생 이해도 변경 핸들러 (STEP 24: Firestore 연동)
+  // 9. 학생 이해도 변경 핸들러 (HelpRequest와 완전 독립)
   const handleUnderstandingChange = async (newUnderstanding: Understanding) => {
     if (!student || !lesson || isSaving) return;
 
@@ -336,7 +335,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
       need_help: "도움이 필요해요",
     };
 
-    // [A] Firestore 온라인 입장 모드인 경우 (요구사항 #16, #20, #21)
+    // [A] Firestore 온라인 입장 모드인 경우
     if (joinedSession) {
       setIsSaving(true);
       setFeedbackError(null);
@@ -346,7 +345,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
           courseId: joinedSession.courseId,
           participantId: student.id,
           lessonId: lesson.id,
-          understanding: newUnderstanding, // null 취소 포함 (요구사항 #21)
+          understanding: newUnderstanding,
         });
 
         setProgress(savedProgress);
@@ -359,7 +358,6 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
         setTimeout(() => setFeedbackMsg(null), 2500);
       } catch (err: unknown) {
         console.error("[ClassFlow] Understanding 저장 오류:", err);
-        // 저장 실패 UX (요구사항 #25, #60)
         setFeedbackError("이해도를 저장하지 못했습니다. 다시 시도해 주세요.");
         setTimeout(() => setFeedbackError(null), 4000);
       } finally {
@@ -368,7 +366,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
       return;
     }
 
-    // [B] 로컬스토리지 모드인 경우 (기존 모드 유지, 요구사항 #17)
+    // [B] 로컬스토리지 모드인 경우
     const updatedData = updateUnderstanding(student.id, lesson.id, newUnderstanding);
     if (updatedData) {
       setLocalData(updatedData);
@@ -388,7 +386,62 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
     setTimeout(() => setFeedbackMsg(null), 2500);
   };
 
-  // 10. 도움 요청 조회 (로컬 모드 전용)
+  // 10. 온라인 도움 요청 생성 핸들러 (STEP 25)
+  const handleRequestHelpOnline = async (msg: string): Promise<boolean> => {
+    if (!joinedSession || !student || !lesson) return false;
+
+    try {
+      const docId = await createHelpRequest({
+        courseId: joinedSession.courseId,
+        participantId: student.id,
+        lessonId: lesson.id,
+        message: msg,
+      });
+
+      // 대기 중인 요청 상태 즉시 갱신
+      setOnlineHelpRequest({
+        id: docId,
+        studentId: student.id,
+        lessonId: lesson.id,
+        message: msg.trim().slice(0, 300),
+        status: "waiting",
+        requestedAt: new Date().toISOString(),
+      });
+
+      setFeedbackMsg("도움 요청이 전송되었습니다.");
+      setTimeout(() => setFeedbackMsg(null), 2500);
+      return true;
+    } catch (err: unknown) {
+      const errorMsg =
+        err instanceof Error ? err.message : "도움 요청을 보내지 못했습니다.";
+      console.error("[ClassFlow] 온라인 도움 요청 생성 실패:", errorMsg);
+      setFeedbackError(errorMsg);
+      setTimeout(() => setFeedbackError(null), 4000);
+      throw err;
+    }
+  };
+
+  // 11. 온라인 도움 요청 취소 핸들러 (STEP 25)
+  const handleCancelHelpOnline = async (): Promise<boolean> => {
+    if (!joinedSession || !onlineHelpRequest) return false;
+
+    try {
+      await cancelHelpRequest(joinedSession.courseId, onlineHelpRequest.id);
+      setOnlineHelpRequest(null);
+      setFeedbackMsg("도움 요청이 취소되었습니다.");
+      setTimeout(() => setFeedbackMsg(null), 2500);
+      return true;
+    } catch (err: unknown) {
+      const errorMsg =
+        err instanceof Error ? err.message : "도움 요청 취소에 실패했습니다.";
+      console.error("[ClassFlow] 온라인 도움 요청 취소 실패:", errorMsg);
+      setFeedbackError(errorMsg);
+      setTimeout(() => setFeedbackError(null), 4000);
+      throw err;
+    }
+  };
+
+  // 12. 도움 요청 변경 콜백 (로컬 모드용)
   const currentHelpRequest =
     localData?.helpRequests?.find(
       (r) =>
@@ -398,13 +451,11 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
     ) || null;
 
   const handleHelpRequestChange = () => {
-    if (joinedSession) {
-      showNotice("실시간 도움 요청 기능은 준비 중입니다 (다음 단계 지원 예정).");
-      return;
-    }
-    const latestData = getCurrentClassData();
-    if (latestData) {
-      setLocalData(latestData);
+    if (!joinedSession) {
+      const latestData = getCurrentClassData();
+      if (latestData) {
+        setLocalData(latestData);
+      }
     }
   };
 
@@ -425,15 +476,15 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
         <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200 text-blue-900 text-xs leading-relaxed mb-6">
           <div className="flex items-center gap-1.5 font-bold mb-0.5">
             <span>🌐</span>
-            <span>온라인 강의 모드 (상태 저장 활성화)</span>
+            <span>온라인 강의 모드 (상태 저장 & 도움 요청 활성화)</span>
           </div>
           <p className="text-blue-800">
-            진행 상태 및 이해도를 선택하면 클라우드에 안전하게 실시간 저장됩니다.
+            진행 상태, 이해도 및 도움 요청이 클라우드에 실시간으로 안전하게 반영됩니다.
           </p>
         </div>
       )}
 
-      {/* 저장 실패 에러 안내 토스트 (요구사항 #25) */}
+      {/* 저장 실패 에러 안내 토스트 */}
       {feedbackError && (
         <div
           role="alert"
@@ -441,14 +492,6 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
         >
           <span className="text-base">⚠️</span>
           <span>{feedbackError}</span>
-        </div>
-      )}
-
-      {/* 알림 토스트 */}
-      {onlineNotice && (
-        <div className="mb-5 p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-xs font-semibold text-amber-900 flex items-center gap-2 animate-fadeIn shadow-sm">
-          <span className="text-base">ℹ️</span>
-          <span>{onlineNotice}</span>
         </div>
       )}
 
@@ -501,7 +544,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
         )}
       </section>
 
-      {/* 나의 진행 상태 변경 섹션 (STEP 24) */}
+      {/* 나의 진행 상태 변경 섹션 */}
       <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm mb-5">
         <div className="flex items-center justify-between gap-2 mb-3">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -521,7 +564,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
         />
       </section>
 
-      {/* 이해 상태 선택 섹션 (STEP 24: 독립 운영) */}
+      {/* 이해 상태 선택 섹션 */}
       <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm mb-6">
         <div className="flex items-center justify-between gap-2 mb-1">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -552,40 +595,19 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
         )}
       </section>
 
-      {/* 5. 도움 요청 섹션 (HelpRequest는 아직 Firestore 미저장, 요구사항 #41) */}
-      {joinedSession ? (
-        <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm mb-6">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <span className="text-xl">🙋</span>
-              <span>도움 요청</span>
-            </h2>
-            <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-              준비 중
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mb-3">
-            실시간 도움 요청 및 강사 대기열 연동은 향후 단계에서 지원됩니다.
-          </p>
-          <button
-            type="button"
-            onClick={() => showNotice("실시간 도움 요청 기능은 준비 중입니다.")}
-            className="w-full py-3 px-4 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-400 cursor-not-allowed text-center"
-          >
-            🙋 {roleLabels.instructor}, 도와주세요 (준비 중)
-          </button>
-        </section>
-      ) : (
-        <HelpRequestPanel
-          studentId={student.id}
-          lessonId={lesson.id}
-          currentHelpRequest={currentHelpRequest}
-          onHelpRequestChange={handleHelpRequestChange}
-          roleLabels={roleLabels}
-        />
-      )}
+      {/* 5. 도움 요청 섹션 (STEP 25: 온라인 모드 연동 지원) */}
+      <HelpRequestPanel
+        studentId={student.id}
+        lessonId={lesson.id}
+        currentHelpRequest={joinedSession ? onlineHelpRequest : currentHelpRequest}
+        onHelpRequestChange={handleHelpRequestChange}
+        roleLabels={roleLabels}
+        isOnline={!!joinedSession}
+        onRequestHelpOnline={handleRequestHelpOnline}
+        onCancelHelpOnline={handleCancelHelpOnline}
+      />
 
-      {/* 6. 피드백 섹션 (로컬 모드 전용, 요구사항 #42) */}
+      {/* 6. 피드백 섹션 (로컬 모드 전용) */}
       {!joinedSession && (
         <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm mb-6">
           <div className="flex items-center justify-between gap-2 mb-3">

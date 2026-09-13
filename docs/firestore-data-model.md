@@ -228,6 +228,10 @@ Firestore는 관계형 데이터베이스의 `UNIQUE` 제약조건이 없습니�
   - `courses/{courseId}/progress/{participantId}_{lessonId}` 서브컬렉션에 ProgressStatus 및 Understanding 저장/조회 구현
   - `setDoc`과 `createdAt`/`updatedAt` 분리 관리, `understanding: null` 취소 지원
   - 새로고침(F5) 및 Student Dashboard `getParticipantProgress`를 통한 차시별 상태 복원 완비
-- **STEP 25 (예정)**: 수강생 HelpRequest(도움 요청) Firestore 저장 및 교사 대시보드 Help Queue 실시간 연동
+- **STEP 25 (완료)**:
+  - 수강생 과제 상세(`LessonDetail`)에서 `courses/{courseId}/helpRequests`에 도움 요청 생성(자동 ID), 중복 대기 방지(`getActiveHelpRequest`), 취소(status: cancelled), 취소 후 재요청 구현
+  - 새로고침(F5) 및 Student Dashboard `hasWaitingHelpRequest` 뱃지 실시간 동기화 완비
+- **STEP 26 (예정)**: 강사 대시보드 Help Queue의 Firestore 연동 및 실시간 리스너(`onSnapshot`) 도입
+
 
 

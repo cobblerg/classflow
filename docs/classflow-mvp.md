@@ -1759,6 +1759,18 @@ ClassFlow를 향후 실제 다중 기기 환경에서 교사와 수강생이 실
   - `need_help`를 선택해도 `helpRequests` 문서는 자동 생성되지 않음
   - HelpRequest, Feedback, Submission은 Firestore에 연결하지 않음
   - 강사 Teacher Dashboard와 Help Queue는 여전히 `localStorage` 기반 동작 유지
+## 8. STEP 25 — Firestore HelpRequest 저장 + 취소 + 재요청
+- **핵심 목표 달성**:
+  - 온라인 강의 입장 수강생이 과제 상세(`LessonDetail`)에서 직접 도움을 요청하면 Firestore `courses/{courseId}/helpRequests`에 자동 생성 ID로 저장
+  - 동일 수강생 + 차시에 `status === "waiting"`인 요청이 이미 존재할 경우 중복 요청 차단 (`getActiveHelpRequest`)
+  - 수강생이 대기 중인 요청을 취소할 수 있으며, 문서를 삭제하지 않고 `status = "cancelled"`, `cancelledAt = serverTimestamp()`, `updatedAt = serverTimestamp()`로 안전 갱신
+  - 취소 후 또는 이전 요청 완료 후 새로운 도움 요청을 정상적으로 다시 생성(재요청) 가능
+  - 새로고침(F5) 또는 대시보드 왕복 시 Firestore에서 대기 중인 요청을 다시 읽어와 상태 복원
+  - Student Dashboard 카드에 온라인 대기 중인 도움 요청 뱃지(`hasWaitingHelpRequest`) 연동
+- **독립성 및 비기능 격리**:
+  - `understanding = "need_help"`와 `HelpRequest`는 100% 완전 독립 (도움 요청을 보내도 이해도가 바뀌지 않으며, 이해도를 변경해도 HelpRequest가 자동 생성되지 않음)
+  - `Progress` 진행 상태와도 상호 간섭 없음
+  - 강사 대시보드의 Help Queue 및 Realtime(onSnapshot)은 아직 Firestore로 전환하지 않음 (다음 단계 예정)
 - **현재 시스템 데이터 소스 상태 요약**:
   - Course: Firestore
   - Participants: Firestore
@@ -1766,13 +1778,14 @@ ClassFlow를 향후 실제 다중 기기 환경에서 교사와 수강생이 실
   - Course Code Join: Firestore
   - Firestore Join mode Progress: Firestore
   - Firestore Join mode Understanding: Firestore
-  - Local MVP/Demo Progress: localStorage
-  - Local MVP/Demo Understanding: localStorage
-  - HelpRequest: localStorage only (Firestore 미구현)
+  - Firestore Join mode HelpRequest: Firestore
+  - Local Demo / localStorage HelpRequest: localStorage
   - Feedback: localStorage only
   - Teacher Dashboard: localStorage 중심
+  - Teacher Help Queue: localStorage 중심
   - Realtime (`onSnapshot`): 미구현
   - Firebase Authentication: 미구현
+
 
 
 

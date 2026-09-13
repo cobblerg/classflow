@@ -6,3 +6,4 @@ export * from "./firestore/participants";
 export * from "./firestore/lessons";
 export * from "./firestore/courseSetup";
 export * from "./firestore/progress";
+export * from "./firestore/helpRequests";

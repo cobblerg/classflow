@@ -65,13 +65,16 @@ export type Submission = {
   updatedAt: string;      // 저장 일시
 };
 
+// 7-1. 도움 요청 상태
+export type HelpRequestStatus = "waiting" | "resolved" | "cancelled";
+
 // 8. 도움 요청 정보
 export type HelpRequest = {
   id: string;             // 도움 요청 식별자
   studentId: string;      // 학생 ID
   lessonId: string;       // 차시 ID
   message: string;        // 도움 요청 메시지 또는 질문
-  status: "waiting" | "resolved" | "cancelled"; // 상태 (대기 중, 교사 도움 완료, 학생 취소)
+  status: HelpRequestStatus; // 상태 (대기 중, 교사 도움 완료, 학생 취소)
   requestedAt: string;    // 요청 시각
   resolvedAt?: string;    // 도움 완료 시각
 };

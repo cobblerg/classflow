@@ -13,14 +13,15 @@ import {
 import { getCourseParticipants } from "@/lib/firestore/participants";
 import { getCourseLessons } from "@/lib/firestore/lessons";
 import { getParticipantProgress } from "@/lib/firestore/progress";
-import type { ClassFlowData, Student, Lesson, Progress, RoleLabels } from "@/types";
+import { getParticipantActiveHelpRequests } from "@/lib/firestore/helpRequests";
+import type { ClassFlowData, Student, Lesson, Progress, HelpRequest, RoleLabels } from "@/types";
 import LessonCard from "./LessonCard";
 
 interface StudentDashboardProps {
   studentId: string; // URL 경로에서 전달받은 참여자 ID
 }
 
-// 개별 참여자(수강생/학생)용 대시보드 컴포넌트 (STEP 24: Firestore Progress 실시간 표시 지원)
+// 개별 참여자(수강생/학생)용 대시보드 컴포넌트 (STEP 25: Firestore HelpRequest 연동 지원)
 export default function StudentDashboard({ studentId }: StudentDashboardProps) {
   const router = useRouter();
 
@@ -29,6 +30,7 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
   const [onlineStudent, setOnlineStudent] = useState<Student | null>(null);
   const [onlineLessons, setOnlineLessons] = useState<Lesson[]>([]);
   const [onlineProgressList, setOnlineProgressList] = useState<Progress[]>([]);
+  const [onlineHelpRequests, setOnlineHelpRequests] = useState<HelpRequest[]>([]);
   const [isLoadingOnline, setIsLoadingOnline] = useState<boolean>(true);
 
   // 2. 로컬 모드 상태
@@ -56,13 +58,14 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
 
       setIsLoadingOnline(true);
 
-      // Firestore에서 수강생 목록, 차시 목록, 그리고 전체 Progress 목록을 단일 쿼리로 동시 로드 (N+1 쿼리 방지, 요구사항 #28)
+      // Firestore에서 수강생 목록, 차시 목록, 전체 Progress 목록, 대기 중인 도움 요청을 동시 로드
       Promise.all([
         getCourseParticipants(session.courseId),
         getCourseLessons(session.courseId),
         getParticipantProgress(session.courseId, studentId),
+        getParticipantActiveHelpRequests(session.courseId, studentId),
       ])
-        .then(([participants, lessons, progressList]) => {
+        .then(([participants, lessons, progressList, helpList]) => {
           const found = participants.find((p) => p.id === studentId);
           if (!found) {
             setIsNotFound(true);
@@ -70,6 +73,7 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
             setOnlineStudent(found);
             setOnlineLessons(lessons);
             setOnlineProgressList(progressList);
+            setOnlineHelpRequests(helpList);
             setIsNotFound(false);
           }
           setIsLoadingOnline(false);
@@ -218,7 +222,7 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
             <span>강의 코드로 입장한 온라인 강의입니다</span>
           </div>
           <p className="text-blue-800 text-xs">
-            각 차시를 선택하여 진행 상태와 이해도를 기록할 수 있으며, 변경된 상태는 클라우드에 안전하게 보존됩니다.
+            각 차시를 선택하여 진행 상태, 이해도 및 도움 요청을 전송할 수 있으며, 변경된 상태는 클라우드에 안전하게 보존됩니다.
           </p>
         </div>
 
@@ -280,11 +284,15 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
                 </div>
               )}
 
-              {/* 차시 카드 렌더링 (Firestore Progress 상태 전달, 요구사항 #28) */}
+              {/* 차시 카드 렌더링 (Firestore Progress 및 HelpRequest 상태 전달) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {onlineLessons.map((lesson) => {
                   const lessonProgress = onlineProgressList.find(
                     (p) => p.lessonId === lesson.id
+                  );
+
+                  const hasWaitingHelp = onlineHelpRequests.some(
+                    (r) => r.lessonId === lesson.id && r.status === "waiting"
                   );
 
                   return (
@@ -293,6 +301,7 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
                       lesson={lesson}
                       progress={lessonProgress}
                       studentId={onlineStudent.id}
+                      hasWaitingHelpRequest={hasWaitingHelp}
                     />
                   );
                 })}
