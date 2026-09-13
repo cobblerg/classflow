@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "@/lib/firebase";
 
 // 폰트 설정 (영문 및 숫자용 가독성 폰트)
 const geistSans = Geist({
