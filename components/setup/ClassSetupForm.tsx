@@ -114,7 +114,18 @@ export default function ClassSetupForm() {
       </div>
 
 
-      <p className="text-sm text-slate-600 mb-8 leading-relaxed">
+      {/* MVP 로컬 브라우저 저장 및 개인정보 보호 안내 배너 (STEP 8) */}
+      <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm leading-relaxed mb-6">
+        <div className="flex items-center gap-1.5 font-bold mb-1">
+          <span>⚠</span>
+          <span>MVP 테스트 버전</span>
+        </div>
+        <p className="text-amber-800">
+          현재 데이터는 이 브라우저에만 저장됩니다. 실제 학생 개인정보 대신 테스트용 이름을 사용하세요.
+        </p>
+      </div>
+
+      <p className="text-sm text-slate-600 mb-6 leading-relaxed">
         진행할 수업의 기본 정보를 입력해 주세요. 입력한 학생 수와 차시에 맞춰 대시보드가 자동으로 구성됩니다.
       </p>
 

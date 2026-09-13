@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { clearCurrentClassData } from "@/lib/tempStore";
 import type { ClassSettings } from "@/types";
 
 interface DashboardSummaryProps {
@@ -7,6 +11,20 @@ interface DashboardSummaryProps {
 
 // 교사 대시보드 상단 헤더 및 기본 정보 요약 컴포넌트
 export default function DashboardSummary({ settings }: DashboardSummaryProps) {
+  const router = useRouter();
+
+  // 테스트 데이터 전체 초기화 핸들러 (STEP 8)
+  const handleReset = () => {
+    const isConfirmed = window.confirm(
+      "현재 ClassFlow 테스트 데이터를 모두 초기화하시겠습니까?\n\n이 작업은 되돌릴 수 없으며 저장된 모든 진행 상태가 삭제됩니다."
+    );
+
+    if (isConfirmed) {
+      clearCurrentClassData();
+      router.push("/setup");
+    }
+  };
+
   return (
     <header className="w-full bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm mb-4">
       {/* 1. 상단 타이틀 및 액션 버튼 */}
@@ -39,6 +57,16 @@ export default function DashboardSummary({ settings }: DashboardSummaryProps) {
           >
             ⚙️ 설정 변경
           </Link>
+
+          {/* 데이터 초기화 버튼 (STEP 8) */}
+          <button
+            type="button"
+            onClick={handleReset}
+            title="ClassFlow 테스트 데이터를 완전히 초기화합니다"
+            className="inline-flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 active:scale-[0.98] transition-all"
+          >
+            🗑️ 데이터 초기화
+          </button>
         </div>
       </div>
 
