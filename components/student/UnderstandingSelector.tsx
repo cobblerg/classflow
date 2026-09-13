@@ -3,12 +3,14 @@ import type { Understanding } from "@/types";
 interface UnderstandingSelectorProps {
   currentUnderstanding: Understanding;                   // 현재 선택된 이해도 상태
   onUnderstandingChange: (newUnderstanding: Understanding) => void; // 이해도 변경 핸들러
+  disabled?: boolean;                                    // 저장 중 등 비활성화 여부 (요구사항 #24)
 }
 
 // 학생이 자신의 학습 이해도(이해함 / 어려움 / 도움 필요)를 선택하는 컴포넌트
 export default function UnderstandingSelector({
   currentUnderstanding,
   onUnderstandingChange,
+  disabled = false,
 }: UnderstandingSelectorProps) {
   // 이해도 옵션 정의
   const options: {
@@ -51,6 +53,7 @@ export default function UnderstandingSelector({
 
   // 클릭 시 토글 처리 (이미 선택된 것을 다시 누르면 null로 취소)
   const handleClick = (val: "understood" | "difficult" | "need_help") => {
+    if (disabled) return;
     if (currentUnderstanding === val) {
       onUnderstandingChange(null);
     } else {
@@ -68,8 +71,11 @@ export default function UnderstandingSelector({
             <button
               key={option.value}
               type="button"
+              disabled={disabled}
               onClick={() => handleClick(option.value)}
-              className={`relative flex flex-col items-center sm:items-start p-4 rounded-2xl border text-left transition-all active:scale-[0.98] cursor-pointer ${
+              className={`relative flex flex-col items-center sm:items-start p-4 rounded-2xl border text-left transition-all active:scale-[0.98] ${
+                disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+              } ${
                 isSelected
                   ? `${option.activeBorder} ${option.activeBg} shadow-xs`
                   : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/50"
@@ -112,8 +118,11 @@ export default function UnderstandingSelector({
         <div className="mt-2.5 text-right">
           <button
             type="button"
+            disabled={disabled}
             onClick={() => onUnderstandingChange(null)}
-            className="text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors cursor-pointer"
+            className={`text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors ${
+              disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+            }`}
           >
             선택 취소 (선택 해제하기)
           </button>

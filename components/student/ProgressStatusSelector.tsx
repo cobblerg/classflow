@@ -3,12 +3,14 @@ import type { ProgressStatus } from "@/types";
 interface ProgressStatusSelectorProps {
   currentStatus: ProgressStatus;                   // 현재 선택된 진행 상태
   onStatusChange: (newStatus: ProgressStatus) => void; // 상태 변경 핸들러 함수
+  disabled?: boolean;                              // 저장 중 등 비활성화 여부 (요구사항 #24)
 }
 
 // 학생이 자신의 과제 진행 상태를 직접 변경할 수 있는 선택기 컴포넌트
 export default function ProgressStatusSelector({
   currentStatus,
   onStatusChange,
+  disabled = false,
 }: ProgressStatusSelectorProps) {
   // 상태 옵션 정의 (시작 전, 진행 중, 완료)
   const options: {
@@ -59,8 +61,11 @@ export default function ProgressStatusSelector({
             <button
               key={option.status}
               type="button"
+              disabled={disabled}
               onClick={() => onStatusChange(option.status)}
-              className={`relative flex flex-col items-center sm:items-start p-4 rounded-2xl border text-left transition-all active:scale-[0.98] cursor-pointer ${
+              className={`relative flex flex-col items-center sm:items-start p-4 rounded-2xl border text-left transition-all active:scale-[0.98] ${
+                disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+              } ${
                 isSelected
                   ? `${option.activeBorder} ${option.activeBg} shadow-xs`
                   : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/50"
@@ -77,7 +82,7 @@ export default function ProgressStatusSelector({
                   </span>
                 </div>
 
-                {/* 선택 여부를 나타내는 시각적 뱃지 (색상 외에 텍스트와 체크마크로도 구분) */}
+                {/* 선택 여부를 나타내는 시각적 뱃지 */}
                 {isSelected ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-white/90 border border-current shadow-2xs">
                     <span>✓</span> 선택됨

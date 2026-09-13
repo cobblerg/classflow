@@ -2,53 +2,312 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getCurrentClassData, setCurrentClassData } from "@/lib/tempStore";
-import { createClassData } from "@/lib/createClassData";
-import { getRoleLabels, getJosa } from "@/lib/roleLabels";
-import type { ClassFlowData, Student } from "@/types";
+import { useRouter } from "next/navigation";
+import { getCurrentClassData } from "@/lib/tempStore";
+import { getRoleLabels } from "@/lib/roleLabels";
+import {
+  getJoinedCourseSession,
+  clearJoinedCourseSession,
+  type JoinedCourseSession,
+} from "@/lib/session";
+import { getCourseParticipants } from "@/lib/firestore/participants";
+import { getCourseLessons } from "@/lib/firestore/lessons";
+import { getParticipantProgress } from "@/lib/firestore/progress";
+import type { ClassFlowData, Student, Lesson, Progress, RoleLabels } from "@/types";
 import LessonCard from "./LessonCard";
 
 interface StudentDashboardProps {
   studentId: string; // URL 경로에서 전달받은 참여자 ID
 }
 
-// 개별 참여자(수강생/학생)용 대시보드 컴포넌트 (STEP 16 범용화)
+// 개별 참여자(수강생/학생)용 대시보드 컴포넌트 (STEP 24: Firestore Progress 실시간 표시 지원)
 export default function StudentDashboard({ studentId }: StudentDashboardProps) {
-  const [data, setData] = useState<ClassFlowData | null>(null);
-  const [student, setStudent] = useState<Student | null>(null);
+  const router = useRouter();
+
+  // 1. 온라인 세션 모드 상태
+  const [joinedSession, setJoinedSession] = useState<JoinedCourseSession | null>(null);
+  const [onlineStudent, setOnlineStudent] = useState<Student | null>(null);
+  const [onlineLessons, setOnlineLessons] = useState<Lesson[]>([]);
+  const [onlineProgressList, setOnlineProgressList] = useState<Progress[]>([]);
+  const [isLoadingOnline, setIsLoadingOnline] = useState<boolean>(true);
+
+  // 2. 로컬 모드 상태
+  const [localData, setLocalData] = useState<ClassFlowData | null>(null);
+  const [localStudent, setLocalStudent] = useState<Student | null>(null);
+
+  // 공통 오류 상태
   const [isNotFound, setIsNotFound] = useState<boolean>(false);
+  const [hasNoData, setHasNoData] = useState<boolean>(false);
+  const [isUnauthorized, setIsUnauthorized] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. 메모리 저장소에서 현재 수업 데이터 가져오기
-    let currentData = getCurrentClassData();
+    // 1. 세션스토리지에서 Firestore 입장 세션 확인 (요구사항 #23)
+    const session = getJoinedCourseSession();
 
-    // 새로고침 등으로 데이터가 없으면 기본값으로 자동 생성
-    if (!currentData) {
-      currentData = createClassData({
-        className: "AI와 피지컬 컴퓨팅",
-        studentCount: 20,
-        lessonCount: 10,
-        createdAt: new Date().toISOString(),
-      });
-      setCurrentClassData(currentData);
-    }
+    if (session && session.courseId) {
+      setJoinedSession(session);
 
-    setData(currentData);
+      // 세션에 저장된 수강생 ID와 URL의 studentId가 일치하는지 검증 (요구사항 #33, #34)
+      if (session.participantId && session.participantId !== studentId) {
+        setIsUnauthorized(true);
+        setIsLoadingOnline(false);
+        return;
+      }
 
-    // 2. studentId와 일치하는 학생 찾기
-    const foundStudent = currentData.students.find((s) => s.id === studentId);
-    if (!foundStudent) {
-      setIsNotFound(true);
+      setIsLoadingOnline(true);
+
+      // Firestore에서 수강생 목록, 차시 목록, 그리고 전체 Progress 목록을 단일 쿼리로 동시 로드 (N+1 쿼리 방지, 요구사항 #28)
+      Promise.all([
+        getCourseParticipants(session.courseId),
+        getCourseLessons(session.courseId),
+        getParticipantProgress(session.courseId, studentId),
+      ])
+        .then(([participants, lessons, progressList]) => {
+          const found = participants.find((p) => p.id === studentId);
+          if (!found) {
+            setIsNotFound(true);
+          } else {
+            setOnlineStudent(found);
+            setOnlineLessons(lessons);
+            setOnlineProgressList(progressList);
+            setIsNotFound(false);
+          }
+          setIsLoadingOnline(false);
+        })
+        .catch((err) => {
+          console.error("[ClassFlow] Firestore 대시보드 데이터 로드 오류:", err);
+          setIsNotFound(true);
+          setIsLoadingOnline(false);
+        });
     } else {
-      setStudent(foundStudent);
-      setIsNotFound(false);
+      // 2. 세션이 없으면 기존 localStorage 모드 확인 (요구사항 #17, #41)
+      setIsLoadingOnline(false);
+      const currentData = getCurrentClassData();
+
+      if (!currentData) {
+        // 로컬스토리지에도 데이터가 없으면 접근 불가 안내 (요구사항 #41)
+        setHasNoData(true);
+        return;
+      }
+
+      setLocalData(currentData);
+      const foundStudent = currentData.students.find((s) => s.id === studentId);
+      if (!foundStudent) {
+        setIsNotFound(true);
+      } else {
+        setLocalStudent(foundStudent);
+        setIsNotFound(false);
+      }
     }
   }, [studentId]);
 
-  const roleLabels = getRoleLabels(data?.settings);
+  // 다른 강의 코드로 나가기
+  const handleLeaveSession = () => {
+    clearJoinedCourseSession();
+    router.push("/join");
+  };
 
-  // 로딩 상태
-  if (!data && !isNotFound) {
+  // 로딩 중 표시
+  if (joinedSession && isLoadingOnline) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-500 text-sm">
+        <div className="text-3xl mb-3 animate-spin">⏳</div>
+        <span>강의 및 진행 상태를 불러오는 중입니다...</span>
+      </div>
+    );
+  }
+
+  // 본인이 아닌 다른 수강생 URL 접근 차단 (요구사항 #33, #34)
+  if (isUnauthorized) {
+    return (
+      <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-amber-200 shadow-sm text-center">
+        <div className="text-4xl mb-4">⚠️</div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">
+          접근 제한
+        </h2>
+        <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+          현재 입장하신 본인({joinedSession?.participantName || "수강생"})의 대시보드만 열람할 수 있습니다.
+        </p>
+        <Link
+          href="/student"
+          className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
+        >
+          ← 수강생 선택으로 돌아가기
+        </Link>
+      </div>
+    );
+  }
+
+  // 강의 데이터가 전혀 없는 경우 (요구사항 #41)
+  if (hasNoData) {
+    return (
+      <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm text-center">
+        <div className="text-4xl mb-4">🚪</div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">
+          입장한 강의가 없습니다
+        </h2>
+        <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+          강의 코드를 입력하여 강의에 먼저 입장해 주세요.
+        </p>
+        <Link
+          href="/join"
+          className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
+        >
+          🔑 강의 코드로 입장하기
+        </Link>
+      </div>
+    );
+  }
+
+  // 참여자를 찾을 수 없는 경우 (요구사항 #41)
+  if (isNotFound) {
+    const roleParticipant = joinedSession
+      ? joinedSession.roleLabels.participant
+      : localData?.settings
+      ? getRoleLabels(localData.settings).participant
+      : "수강생";
+
+    return (
+      <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm text-center">
+        <div className="text-4xl mb-4">🔍</div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">
+          {roleParticipant}을(를) 찾을 수 없습니다
+        </h2>
+        <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+          요청하신 {roleParticipant} ID (<code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono text-xs">{studentId}</code>)는 존재하지 않습니다.
+        </p>
+        <Link
+          href="/student"
+          className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
+        >
+          ← {roleParticipant} 선택으로 돌아가기
+        </Link>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // [A] Firestore 온라인 입장 모드 렌더링
+  // ==========================================
+  if (joinedSession && onlineStudent) {
+    const roleLabels: RoleLabels = joinedSession.roleLabels;
+
+    return (
+      <div className="w-full max-w-4xl mx-auto flex flex-col">
+        {/* 상단 내비게이션 바 */}
+        <div className="flex items-center justify-between gap-3 mb-6">
+          <Link
+            href="/student"
+            className="text-xs font-semibold text-slate-600 hover:text-blue-600 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 transition-colors inline-flex items-center gap-1.5 shadow-2xs"
+          >
+            ← {roleLabels.participant} 다시 선택
+          </Link>
+
+          <button
+            onClick={handleLeaveSession}
+            className="text-xs font-semibold text-slate-500 hover:text-rose-600 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 transition-colors inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+          >
+            🚪 강의 퇴장
+          </button>
+        </div>
+
+        {/* 온라인 모드 안내 배너 */}
+        <div className="p-4 rounded-2xl bg-blue-50/80 border border-blue-200 text-blue-950 text-xs sm:text-sm leading-relaxed mb-6">
+          <div className="flex items-center gap-1.5 font-bold text-blue-900 mb-1">
+            <span>🌐</span>
+            <span>강의 코드로 입장한 온라인 강의입니다</span>
+          </div>
+          <p className="text-blue-800 text-xs">
+            각 차시를 선택하여 진행 상태와 이해도를 기록할 수 있으며, 변경된 상태는 클라우드에 안전하게 보존됩니다.
+          </p>
+        </div>
+
+        {/* 학생 프로필 헤더 카드 */}
+        <header className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm mb-6">
+          <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 mb-2">
+            <span>ClassFlow</span>
+            <span>•</span>
+            <span className="truncate max-w-[280px] font-bold">
+              {joinedSession.courseTitle}
+            </span>
+            <span className="text-slate-400 font-mono text-[11px]">
+              ({joinedSession.courseCode})
+            </span>
+          </div>
+
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-1">
+            안녕하세요, <span className="text-blue-600">{onlineStudent.name}</span>님! 👋
+          </h1>
+          <p className="text-sm text-slate-500">
+            오늘 진행할 과제를 확인하고 자신의 속도에 맞추어 학습해 보세요.
+          </p>
+        </header>
+
+        {/* 나의 학습 차시 목록 섹션 */}
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center justify-between px-1 mb-1">
+            <h2 className="text-base font-bold text-slate-800">
+              나의 학습 ({onlineLessons.length}차시)
+            </h2>
+            <span className="text-xs text-slate-400">
+              상태를 확인하고 수업에 참여하세요
+            </span>
+          </div>
+
+          {/* 차시가 0개인 경우 안내 */}
+          {onlineLessons.length === 0 ? (
+            <div className="py-12 px-6 text-center bg-white rounded-3xl border border-dashed border-slate-300 shadow-xs mb-2">
+              <span className="text-3xl block mb-2">📚</span>
+              <h3 className="text-base font-bold text-slate-800 mb-1">
+                등록된 차시가 없습니다
+              </h3>
+              <p className="text-xs text-slate-500">
+                강사가 차시를 등록하면 이곳에 목록이 나타납니다.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* 모든 차시가 비공개인 경우 안내 */}
+              {onlineLessons.filter((l) => l.published).length === 0 && (
+                <div className="py-10 px-6 text-center bg-white rounded-3xl border border-dashed border-amber-300 bg-amber-50/40 shadow-xs mb-2">
+                  <span className="text-3xl block mb-2">🔒</span>
+                  <h3 className="text-base font-bold text-slate-900 mb-1">
+                    현재 공개된 차시가 없습니다
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-500">
+                    선생님이 차시를 공개하면 이곳에서 과제를 확인하고 학습할 수 있습니다.
+                  </p>
+                </div>
+              )}
+
+              {/* 차시 카드 렌더링 (Firestore Progress 상태 전달, 요구사항 #28) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {onlineLessons.map((lesson) => {
+                  const lessonProgress = onlineProgressList.find(
+                    (p) => p.lessonId === lesson.id
+                  );
+
+                  return (
+                    <LessonCard
+                      key={lesson.id}
+                      lesson={lesson}
+                      progress={lessonProgress}
+                      studentId={onlineStudent.id}
+                    />
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // [B] 기존 localStorage 모드 렌더링 (보존)
+  // ==========================================
+  if (!localData || !localStudent) {
     return (
       <div className="flex-1 flex items-center justify-center p-12 text-slate-500 text-sm">
         정보를 불러오는 중입니다...
@@ -56,32 +315,12 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
     );
   }
 
-  // 3. 잘못된 studentId 예외 처리 화면 (Test E)
-  if (isNotFound || !student) {
-    return (
-      <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm text-center">
-        <div className="text-4xl mb-4">🔍</div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">
-          {roleLabels.participant}을(를) 찾을 수 없습니다
-        </h2>
-        <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-          요청하신 {roleLabels.participant} ID (<code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono text-xs">{studentId}</code>)는 존재하지 않습니다.
-        </p>
-        <Link
-          href="/student"
-          className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
-        >
-          ← {roleLabels.participant} 선택으로 돌아가기
-        </Link>
-      </div>
-    );
-  }
-
-  const { settings, lessons, progress, helpRequests } = data!;
+  const { settings, lessons, progress, helpRequests } = localData;
+  const roleLabels = getRoleLabels(settings);
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col">
-      {/* 4. 상단 내비게이션 바 */}
+      {/* 상단 내비게이션 바 */}
       <div className="flex items-center justify-between gap-3 mb-6">
         <Link
           href="/student"
@@ -98,7 +337,7 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
         </Link>
       </div>
 
-      {/* 5. 학생 프로필 헤더 카드 */}
+      {/* 학생 프로필 헤더 카드 */}
       <header className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm mb-6">
         <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 mb-2">
           <span>ClassFlow</span>
@@ -107,14 +346,14 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-1">
-          안녕하세요, <span className="text-blue-600">{student.name}</span>님! 👋
+          안녕하세요, <span className="text-blue-600">{localStudent.name}</span>님! 👋
         </h1>
         <p className="text-sm text-slate-500">
           오늘 진행할 과제를 확인하고 자신의 속도에 맞추어 학습해 보세요.
         </p>
       </header>
 
-      {/* 6. 나의 학습 차시 목록 섹션 (반응형 1/2/3열 그리드, 요구사항 #27) */}
+      {/* 나의 학습 차시 목록 섹션 */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between px-1 mb-1">
           <h2 className="text-base font-bold text-slate-800">
@@ -125,7 +364,6 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
           </span>
         </div>
 
-        {/* 모든 차시가 비공개인 경우 안내 (STEP 12, Test I) */}
         {lessons.filter((l) => l.published).length === 0 && (
           <div className="py-10 px-6 text-center bg-white rounded-3xl border border-dashed border-amber-300 bg-amber-50/40 shadow-xs mb-2">
             <span className="text-3xl block mb-2">🔒</span>
@@ -138,18 +376,15 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
           </div>
         )}
 
-        {/* 차시 카드 렌더링 (반응형 그리드) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {lessons.map((lesson) => {
-            // 해당 학생과 차시에 해당하는 진행 상태 매칭
             const lessonProgress = progress.find(
-              (p) => p.studentId === student.id && p.lessonId === lesson.id
+              (p) => p.studentId === localStudent.id && p.lessonId === lesson.id
             );
 
-            // 해당 학생과 차시에 대기 중인 도움 요청이 있는지 확인 (STEP 9)
             const hasWaitingHelp = helpRequests?.some(
               (r) =>
-                r.studentId === student.id &&
+                r.studentId === localStudent.id &&
                 r.lessonId === lesson.id &&
                 r.status === "waiting"
             );
@@ -159,7 +394,7 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
                 key={lesson.id}
                 lesson={lesson}
                 progress={lessonProgress}
-                studentId={student.id}
+                studentId={localStudent.id}
                 hasWaitingHelpRequest={hasWaitingHelp}
               />
             );

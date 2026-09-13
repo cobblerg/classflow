@@ -215,9 +215,19 @@ Firestore는 관계형 데이터베이스의 `UNIQUE` 제약조건이 없습니�
 
 ---
 
-## 7. 향후 단계별 마이그레이션 로드맵
+## 7. 단계별 마이그레이션 현황 및 로드맵
 
-- **STEP 20 (현재)**: Firestore 인스턴스 초기화, 데이터 모델 설계, 테스트 Course 문서 1개 저장/조회 성공 확인 (기존 기능 100% localStorage 유지)
-- **STEP 21**: 강사가 강의를 생성할 때 Firestore `courses` 컬렉션에 실제 강의 정보와 서브컬렉션을 초기화하는 Repository 계층 구현
-- **STEP 22**: 수강생이 `/join`에서 Firestore의 `courseCode`를 조회하여 실제 다중 기기에서 동일 강의로 입장하는 연결 흐름 구축
-- **STEP 23**: 실시간 리스너(`onSnapshot`)를 도입하여 한 기기에서 변경된 Progress/Help Queue가 교사 대시보드에 즉시 실시간 반영되도록 업그레이드
+- **STEP 20 (완료)**: Firestore 인스턴스 초기화, 데이터 모델 설계, 테스트 Course 문서 1개 저장/조회 확인
+- **STEP 21 (완료)**: 강사 `/setup`에서 새 강의 개설 시 Firestore `courses/{courseId}` 문서 생성 연동
+- **STEP 22 (완료)**: 강의 개설 시 `participants` 및 `lessons` 서브컬렉션 writeBatch 일괄 생성
+- **STEP 23 (완료)**:
+  - 수강생 `/join`에서 6자리 강의 코드로 Firestore `courses` 컬렉션 단건 쿼리(`where("courseCode", "==", code)`)
+  - 강의 발견 시 기본 정보 확인 및 `sessionStorage` 기반 `JoinedCourseSession` 생성
+  - 다른 기기/시크릿 창에서 `getCourseParticipants` 및 `getCourseLessons` 조회 후 수강생 선택 및 Student Dashboard 진입
+- **STEP 24 (완료)**:
+  - `courses/{courseId}/progress/{participantId}_{lessonId}` 서브컬렉션에 ProgressStatus 및 Understanding 저장/조회 구현
+  - `setDoc`과 `createdAt`/`updatedAt` 분리 관리, `understanding: null` 취소 지원
+  - 새로고침(F5) 및 Student Dashboard `getParticipantProgress`를 통한 차시별 상태 복원 완비
+- **STEP 25 (예정)**: 수강생 HelpRequest(도움 요청) Firestore 저장 및 교사 대시보드 Help Queue 실시간 연동
+
+

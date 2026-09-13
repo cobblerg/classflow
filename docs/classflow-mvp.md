@@ -1728,6 +1728,54 @@ ClassFlow를 향후 실제 다중 기기 환경에서 교사와 수강생이 실
   - `progress`, `helpRequests`, `feedback`, `submissions`는 이번 STEP에서 저장하지 않음
   - `/join` 및 모든 사용자 UI는 계속 100% `localStorage` 기반으로 동작
 
+## 6. STEP 23 — Firestore 강의 코드 조회 + 다른 브라우저/기기에서 강의 입장
+- **핵심 목표 달성**:
+  - 강사가 개설한 강의의 6자리 강의 코드를 다른 브라우저/기기(또는 시크릿 모드)의 수강생이 입력하여 원격 조회 성공
+  - 수강생 브라우저에 `classflow-mvp-data` 로컬스토리지가 전혀 없는 백지 상태에서도 Firestore의 `courses`, `participants`, `lessons` 데이터를 불러와 수강생 선택 및 Student Dashboard 진입 가능
+- **아키텍처 및 상태 분리**:
+  - **JoinedCourseSession (`sessionStorage`, key: `classflow-joined-course`)**:
+    - 온라인 강의 입장 정보를 브라우저 탭 세션 단위로 보관 (`courseId`, `courseCode`, `courseTitle`, `studentCount`, `lessonCount`, `roleLabels`, `participantId`, `participantName`)
+    - 강사의 전체 로컬스토리지 데이터를 수강생에게 복제하지 않고 깔끔히 격리
+  - **Firestore 조회 계층 (Helper 모듈)**:
+    - `lib/firestore/courses.ts`: `findCourseByCode(code)` — `where("courseCode", "==", normalizedCode)` 및 `limit(2)` 중복 방어 쿼리
+    - `lib/firestore/participants.ts`: `getCourseParticipants(courseId)` — `number ASC` 정렬 및 Student 모델 매핑
+    - `lib/firestore/lessons.ts`: `getCourseLessons(courseId)` — `number ASC` 정렬 및 `published` 상태 반영
+- **보안 및 인증 주의사항**:
+  - **강의 코드와 이름 선택은 '보안 인증'이 아닙니다.** 단순 강의 탐색 및 MVP 테스트용 식별 절차일 뿐이며, 향후 Firebase Authentication 및 Security Rules 적용 예정
+  - **Course Code 고유성(UNIQUE) 과제**: 향후 프로덕션 환경을 위해 중복을 원천 차단하는 `courseCodes/{code}` 예약 컬렉션 매핑 전략 필요
+## 7. STEP 24 — 수강생 Progress + Understanding Firestore 저장/조회
+- **핵심 목표 달성**:
+  - 온라인 강의 입장 수강생이 과제 상세(`LessonDetail`)에서 진행 상태(`status`)와 이해도(`understanding`)를 변경하면 Firestore `courses/{courseId}/progress/{participantId}_{lessonId}`에 안전하게 저장
+  - 새로고침(F5) 또는 대시보드 왕복 시 Firestore에서 상태를 다시 읽어와 이전 상태가 100% 복원됨
+  - Student Dashboard에서도 `getParticipantProgress`를 통해 차시별 Progress 뱃지(진행 상태 및 이해도) 정상 표시
+- **문서 모델 및 ID 전략**:
+  - 서브컬렉션 경로: `courses/{courseId}/progress/{progressId}`
+  - 결정적 Document ID: `{participantId}_{lessonId}` (중복 생성 원천 방지)
+  - 필드: `participantId`, `lessonId`, `status`, `understanding`, `createdAt`, `updatedAt`
+  - 최초 생성(Lazy Creation) 시: `createdAt`, `updatedAt` 모두 `serverTimestamp()`
+  - 업데이트 시: `createdAt` 불변 유지, `updatedAt`만 `serverTimestamp()`
+- **상태 독립성 및 미지원 기능 격리**:
+  - `status`와 `understanding`은 상호 독립적으로 업데이트되며, `understanding: null` 선택 해제도 정상 반영
+  - `need_help`를 선택해도 `helpRequests` 문서는 자동 생성되지 않음
+  - HelpRequest, Feedback, Submission은 Firestore에 연결하지 않음
+  - 강사 Teacher Dashboard와 Help Queue는 여전히 `localStorage` 기반 동작 유지
+- **현재 시스템 데이터 소스 상태 요약**:
+  - Course: Firestore
+  - Participants: Firestore
+  - Lessons: Firestore
+  - Course Code Join: Firestore
+  - Firestore Join mode Progress: Firestore
+  - Firestore Join mode Understanding: Firestore
+  - Local MVP/Demo Progress: localStorage
+  - Local MVP/Demo Understanding: localStorage
+  - HelpRequest: localStorage only (Firestore 미구현)
+  - Feedback: localStorage only
+  - Teacher Dashboard: localStorage 중심
+  - Realtime (`onSnapshot`): 미구현
+  - Firebase Authentication: 미구현
+
+
+
 
 
 
