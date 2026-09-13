@@ -91,11 +91,11 @@ export default function HelpQueueItem({ item, onResolve }: HelpQueueItemProps) {
 
         {/* 우측: 액션 버튼 ([학생 보기], [도움 완료]) */}
         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-          {/* 학생 상세 화면 이동 버튼 */}
+          {/* 학생 상세 화면 이동 버튼 (교사용 상세 Route 연결, STEP 11) */}
           <Link
-            href={`/student/${item.studentId}/lesson/${item.lessonId}`}
+            href={`/teacher/student/${item.studentId}/lesson/${item.lessonId}`}
             className="inline-flex items-center justify-center px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200/80 active:scale-[0.98] transition-all shadow-2xs"
-            title="해당 학생의 과제 상세 화면으로 이동합니다"
+            title="해당 학생의 교사용 상세 화면으로 이동합니다"
           >
             학생 보기 →
           </Link>

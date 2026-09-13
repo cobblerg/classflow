@@ -347,6 +347,33 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
         onHelpRequestChange={handleHelpRequestChange}
       />
 
+      {/* 6. 선생님 피드백 섹션 (STEP 11: 학생 조회 전용) */}
+      <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm mb-6">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span className="text-xl">💬</span>
+            <span>선생님 피드백</span>
+          </h2>
+          {data?.feedback?.find((f) => f.studentId === student.id && f.lessonId === lesson.id) && (
+            <span className="text-xs text-slate-400">
+              {new Date(
+                data.feedback.find((f) => f.studentId === student.id && f.lessonId === lesson.id)!.updatedAt
+              ).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </div>
+
+        {data?.feedback?.find((f) => f.studentId === student.id && f.lessonId === lesson.id)?.content ? (
+          <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-100 text-sm text-slate-800 leading-relaxed whitespace-pre-line font-medium">
+            {data.feedback.find((f) => f.studentId === student.id && f.lessonId === lesson.id)!.content}
+          </div>
+        ) : (
+          <p className="text-xs sm:text-sm text-slate-400 italic py-1">
+            아직 등록된 선생님 피드백이 없습니다. 과제를 진행하면 선생님이 피드백을 남겨주실 거예요.
+          </p>
+        )}
+      </section>
+
       {/* 하단 내비게이션 버튼 */}
       <div className="pt-2">
         <Link

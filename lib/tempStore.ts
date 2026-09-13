@@ -3,6 +3,7 @@ import type {
   ProgressStatus,
   Understanding,
   HelpRequest,
+  Feedback,
 } from "@/types";
 import {
   saveClassFlowData,
@@ -277,6 +278,86 @@ export function resolveHelpRequest(helpRequestId: string): boolean {
   saveClassFlowData(inMemoryClassData);
 
   return true;
+}
+
+/**
+ * 특정 학생과 차시에 대한 교사 피드백(Feedback)을 조회하는 함수 (STEP 11)
+ */
+export function getFeedback(
+  studentId: string,
+  lessonId: string
+): Feedback | null {
+  const current = getCurrentClassData();
+  if (!current || !Array.isArray(current.feedback)) return null;
+
+  return (
+    current.feedback.find(
+      (f) => f.studentId === studentId && f.lessonId === lessonId
+    ) || null
+  );
+}
+
+/**
+ * 교사가 특정 학생 × 차시에 피드백을 작성하거나 수정하여 저장하는 함수 (STEP 11)
+ * (중복 방지: studentId + lessonId 기준으로 기존 피드백이 있으면 내용과 수정 시각만 갱신, 없으면 추가)
+ * ※ 주의: Feedback 저장은 Progress, Understanding, HelpRequest에 일체 영향을 주지 않습니다.
+ */
+export function saveFeedback(
+  studentId: string,
+  lessonId: string,
+  content: string
+): Feedback | null {
+  const current = getCurrentClassData();
+  if (!current) return null;
+
+  const trimmedContent = content.trim();
+  if (!trimmedContent) return null;
+
+  const now = new Date().toISOString();
+  let matched = false;
+
+  const currentFeedbackList = Array.isArray(current.feedback)
+    ? current.feedback
+    : [];
+
+  // 기존 피드백이 있는지 검색하여 갱신
+  const updatedFeedbackList = currentFeedbackList.map((f) => {
+    if (f.studentId === studentId && f.lessonId === lessonId) {
+      matched = true;
+      return {
+        ...f,
+        content: trimmedContent,
+        updatedAt: now,
+      };
+    }
+    return f;
+  });
+
+  // 기존 피드백이 없었다면 새로 추가
+  let savedFeedback: Feedback;
+  if (!matched) {
+    savedFeedback = {
+      studentId,
+      lessonId,
+      content: trimmedContent,
+      updatedAt: now,
+    };
+    updatedFeedbackList.push(savedFeedback);
+  } else {
+    savedFeedback = updatedFeedbackList.find(
+      (f) => f.studentId === studentId && f.lessonId === lessonId
+    )!;
+  }
+
+  inMemoryClassData = {
+    ...current,
+    feedback: updatedFeedbackList,
+  };
+
+  // localStorage에 즉시 영속화
+  saveClassFlowData(inMemoryClassData);
+
+  return savedFeedback;
 }
 
 /**

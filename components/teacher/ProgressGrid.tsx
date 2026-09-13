@@ -105,6 +105,8 @@ export default function ProgressGrid({
                         <ProgressCell
                           progress={cellProgress}
                           isPublished={lesson.published}
+                          studentId={student.id}
+                          lessonId={lesson.id}
                         />
                       </td>
                     );

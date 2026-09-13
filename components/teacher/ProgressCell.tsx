@@ -1,37 +1,49 @@
+import Link from "next/link";
 import type { Progress } from "@/types";
 
 interface ProgressCellProps {
   progress?: Progress;    // 학생과 차시에 해당하는 진행 상태 데이터
   isPublished: boolean;   // 해당 차시의 학생 공개 여부
+  studentId: string;      // 학생 ID (STEP 11 상세 연결용)
+  lessonId: string;       // 차시 ID (STEP 11 상세 연결용)
 }
 
 // 개별 학생 × 차시의 진행 상태 및 이해도를 표시하는 Compact Cell 컴포넌트
-export default function ProgressCell({ progress, isPublished }: ProgressCellProps) {
-  // 1. 차시가 비공개인 경우: 🔒 비공개 표시
+export default function ProgressCell({
+  progress,
+  isPublished,
+  studentId,
+  lessonId,
+}: ProgressCellProps) {
+  const detailUrl = `/teacher/student/${studentId}/lesson/${lessonId}`;
+
+  // 1. 차시가 비공개인 경우: 🔒 비공개 표시 (교사는 상세 보기 가능)
   if (!isPublished) {
     return (
-      <div
-        className="w-full h-9 sm:h-9.5 flex items-center justify-center text-slate-400 bg-slate-50/70 cursor-not-allowed select-none transition-colors"
-        title="비공개된 차시입니다"
+      <Link
+        href={detailUrl}
+        className="block w-full h-9 sm:h-9.5 flex items-center justify-center text-slate-400 bg-slate-50/70 hover:bg-slate-100 select-none transition-colors"
+        title="비공개된 차시입니다 (클릭 시 상세 보기)"
         aria-label="비공개 차시"
       >
         <span className="text-xs sm:text-sm">🔒</span>
-      </div>
+      </Link>
     );
   }
 
   // 2. 이해도가 도움 필요인 경우: 🔴 도움 필요 (진행 상태보다 최우선)
   if (progress?.understanding === "need_help") {
     return (
-      <div
-        className="w-full h-9 sm:h-9.5 flex items-center justify-center bg-red-50/70 hover:bg-red-100/80 transition-colors select-none"
-        title="선생님의 도움이 필요한 상태입니다"
+      <Link
+        href={detailUrl}
+        className="block w-full h-9 sm:h-9.5 flex items-center justify-center bg-red-50/70 hover:bg-red-100/90 transition-colors select-none"
+        title="선생님의 도움이 필요한 상태입니다 (클릭 시 상세 보기)"
         aria-label="도움 필요"
       >
         <span className="text-sm sm:text-base animate-pulse" role="img" aria-label="도움 필요">
           🔴
         </span>
-      </div>
+      </Link>
     );
   }
 
@@ -41,35 +53,36 @@ export default function ProgressCell({ progress, isPublished }: ProgressCellProp
 
   let statusIcon = "⚪";
   let statusTitle = "시작 전";
-  let bgClass = "hover:bg-slate-100/70";
+  let bgClass = "hover:bg-blue-50/60";
 
   switch (status) {
     case "completed":
       statusIcon = "🟢";
       statusTitle = "과제 완료";
-      bgClass = "bg-emerald-50/50 hover:bg-emerald-100/70";
+      bgClass = "bg-emerald-50/50 hover:bg-emerald-100/80";
       break;
     case "in_progress":
       statusIcon = "🟡";
       statusTitle = "과제 진행 중";
-      bgClass = "bg-amber-50/50 hover:bg-amber-100/70";
+      bgClass = "bg-amber-50/50 hover:bg-amber-100/80";
       break;
     case "not_started":
     default:
       statusIcon = "⚪";
       statusTitle = "시작 전";
-      bgClass = "hover:bg-slate-100/70";
+      bgClass = "hover:bg-slate-100/80";
       break;
   }
 
   // 이해도가 어려운 상태(difficult)인 경우 툴팁에 반영
   const fullTitle = isDifficult
-    ? `${statusTitle} (🤔 어려워하고 있어요)`
-    : statusTitle;
+    ? `${statusTitle} (🤔 어려워하고 있어요 - 클릭 시 상세 보기)`
+    : `${statusTitle} (클릭 시 상세 보기)`;
 
   return (
-    <div
-      className={`relative w-full h-9 sm:h-9.5 flex items-center justify-center select-none transition-colors ${bgClass}`}
+    <Link
+      href={detailUrl}
+      className={`relative block w-full h-9 sm:h-9.5 flex items-center justify-center select-none transition-colors ${bgClass}`}
       title={fullTitle}
       aria-label={fullTitle}
     >
@@ -87,6 +100,6 @@ export default function ProgressCell({ progress, isPublished }: ProgressCellProp
           🤔
         </span>
       )}
-    </div>
+    </Link>
   );
 }
