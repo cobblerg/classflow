@@ -28,7 +28,7 @@ export function createClassData(settings: ClassSettings): ClassFlowData {
   }
 
   // 2. 차시 목록 동적 생성 (1 ~ lessonCount)
-  // 1차시는 기본 공개(published: true), 나머지는 비공개(false)
+  // Demo 모드: 비교 분석 및 테스트 편의를 위해 최소 처음 3개 차시(1~3차시)를 기본 공개로 설정
   const lessons: Lesson[] = [];
   for (let i = 1; i <= settings.lessonCount; i++) {
     const paddedNumber = String(i).padStart(2, "0");
@@ -38,21 +38,52 @@ export function createClassData(settings: ClassSettings): ClassFlowData {
       title: `${i}차시`,
       objective: "",
       description: "",
-      published: i === 1, // 1차시만 기본으로 공개 처리
+      published: i <= 3, // 1~3차시는 공개, 4차시 이후는 비공개 (차시 수가 적어도 안전)
     });
   }
 
   // 3. 초기 Progress(진행 상태) 데이터 조합 생성
-  // 학생 수 × 차시 수 만큼 모든 조합의 기본 Progress 객체 생성
-  // 초기값: status = "not_started", understanding = null
+  // Dashboard 상태 표현 검증을 위해 현실적인 Demo 상태를 안전하게 부여
   const progress: Progress[] = [];
   for (const student of students) {
     for (const lesson of lessons) {
+      // 기본값: 시작 전
+      let status: "not_started" | "in_progress" | "completed" = "not_started";
+      let understanding: "understood" | "difficult" | "need_help" | null = null;
+
+      // 학생01: 1차시 완료, 2차시 완료, 3차시 진행 중
+      if (student.number === 1) {
+        if (lesson.number === 1) status = "completed";
+        else if (lesson.number === 2) status = "completed";
+        else if (lesson.number === 3) status = "in_progress";
+      }
+      // 학생02: 1차시 완료, 2차시 진행 중
+      else if (student.number === 2) {
+        if (lesson.number === 1) status = "completed";
+        else if (lesson.number === 2) status = "in_progress";
+      }
+      // 학생03: 1차시 완료, 2차시 진행 중 + need_help (도움 필요)
+      else if (student.number === 3) {
+        if (lesson.number === 1) status = "completed";
+        else if (lesson.number === 2) {
+          status = "in_progress";
+          understanding = "need_help";
+        }
+      }
+      // 학생04: 1차시 진행 중
+      else if (student.number === 4) {
+        if (lesson.number === 1) status = "in_progress";
+      }
+      // 학생05: 1차시 완료
+      else if (student.number === 5) {
+        if (lesson.number === 1) status = "completed";
+      }
+
       progress.push({
         studentId: student.id,
         lessonId: lesson.id,
-        status: "not_started",
-        understanding: null,
+        status,
+        understanding,
         updatedAt: now,
       });
     }

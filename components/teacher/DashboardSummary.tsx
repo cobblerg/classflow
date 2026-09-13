@@ -8,9 +8,9 @@ interface DashboardSummaryProps {
 // 교사 대시보드 상단 헤더 및 기본 정보 요약 컴포넌트
 export default function DashboardSummary({ settings }: DashboardSummaryProps) {
   return (
-    <header className="w-full bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-sm mb-6">
+    <header className="w-full bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm mb-4">
       {/* 1. 상단 타이틀 및 액션 버튼 */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <Link
             href="/"

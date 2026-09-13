@@ -5,17 +5,17 @@ interface ProgressCellProps {
   isPublished: boolean;   // 해당 차시의 학생 공개 여부
 }
 
-// 개별 학생 × 차시의 진행 상태를 표시하는 Cell 컴포넌트
+// 개별 학생 × 차시의 진행 상태를 표시하는 Compact Cell 컴포넌트
 export default function ProgressCell({ progress, isPublished }: ProgressCellProps) {
   // 1. 차시가 비공개인 경우: 🔒 비공개 표시
   if (!isPublished) {
     return (
       <div
-        className="w-full h-12 flex items-center justify-center text-slate-400 bg-slate-50/50 cursor-not-allowed select-none"
+        className="w-full h-9 sm:h-9.5 flex items-center justify-center text-slate-400 bg-slate-50/70 cursor-not-allowed select-none transition-colors"
         title="비공개된 차시입니다"
         aria-label="비공개 차시"
       >
-        <span className="text-base">🔒</span>
+        <span className="text-xs sm:text-sm">🔒</span>
       </div>
     );
   }
@@ -24,11 +24,11 @@ export default function ProgressCell({ progress, isPublished }: ProgressCellProp
   if (progress?.understanding === "need_help") {
     return (
       <div
-        className="w-full h-12 flex items-center justify-center bg-red-50/60 hover:bg-red-100/70 transition-colors select-none"
+        className="w-full h-9 sm:h-9.5 flex items-center justify-center bg-red-50/70 hover:bg-red-100/80 transition-colors select-none"
         title="도움이 필요한 상태입니다"
         aria-label="도움 필요"
       >
-        <span className="text-lg animate-pulse" role="img" aria-label="도움 필요">
+        <span className="text-sm sm:text-base animate-pulse" role="img" aria-label="도움 필요">
           🔴
         </span>
       </div>
@@ -43,11 +43,11 @@ export default function ProgressCell({ progress, isPublished }: ProgressCellProp
       // 🟢 완료 상태
       return (
         <div
-          className="w-full h-12 flex items-center justify-center bg-emerald-50/40 hover:bg-emerald-100/60 transition-colors select-none"
+          className="w-full h-9 sm:h-9.5 flex items-center justify-center bg-emerald-50/50 hover:bg-emerald-100/70 transition-colors select-none"
           title="과제 완료"
           aria-label="완료"
         >
-          <span className="text-lg" role="img" aria-label="완료">
+          <span className="text-sm sm:text-base" role="img" aria-label="완료">
             🟢
           </span>
         </div>
@@ -57,11 +57,11 @@ export default function ProgressCell({ progress, isPublished }: ProgressCellProp
       // 🟡 진행 중 상태
       return (
         <div
-          className="w-full h-12 flex items-center justify-center bg-amber-50/40 hover:bg-amber-100/60 transition-colors select-none"
+          className="w-full h-9 sm:h-9.5 flex items-center justify-center bg-amber-50/50 hover:bg-amber-100/70 transition-colors select-none"
           title="과제 진행 중"
           aria-label="진행 중"
         >
-          <span className="text-lg" role="img" aria-label="진행 중">
+          <span className="text-sm sm:text-base" role="img" aria-label="진행 중">
             🟡
           </span>
         </div>
@@ -72,11 +72,11 @@ export default function ProgressCell({ progress, isPublished }: ProgressCellProp
       // ⚪ 시작 전 상태
       return (
         <div
-          className="w-full h-12 flex items-center justify-center hover:bg-slate-100/60 transition-colors select-none"
+          className="w-full h-9 sm:h-9.5 flex items-center justify-center hover:bg-slate-100/70 transition-colors select-none"
           title="시작 전"
           aria-label="시작 전"
         >
-          <span className="text-lg text-slate-300" role="img" aria-label="시작 전">
+          <span className="text-sm sm:text-base text-slate-300" role="img" aria-label="시작 전">
             ⚪
           </span>
         </div>
