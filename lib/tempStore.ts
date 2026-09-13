@@ -64,3 +64,52 @@ export function updateProgressStatus(
   return inMemoryClassData;
 }
 
+/**
+ * 특정 학생과 차시의 이해도(Understanding)를 독립적으로 업데이트하는 함수
+ * (이해함: understood, 어려움: difficult, 도움 필요: need_help, 미선택: null)
+ * ※ 주의: 기존 status는 절대 변경하지 않고 understanding과 updatedAt만 갱신합니다.
+ */
+export function updateUnderstanding(
+  studentId: string,
+  lessonId: string,
+  newUnderstanding: import("@/types").Understanding
+): ClassFlowData | null {
+  if (!inMemoryClassData) return null;
+
+  const now = new Date().toISOString();
+  let matched = false;
+
+  // 기존 progress 목록을 순회하며 대상 학생-차시의 understanding만 업데이트
+  const updatedProgressList = inMemoryClassData.progress.map((p) => {
+    if (p.studentId === studentId && p.lessonId === lessonId) {
+      matched = true;
+      return {
+        ...p,
+        understanding: newUnderstanding,
+        updatedAt: now,
+      };
+    }
+    return p;
+  });
+
+  // 매칭되는 progress 객체가 없는 예외 상황 대비
+  if (!matched) {
+    updatedProgressList.push({
+      studentId,
+      lessonId,
+      status: "not_started",
+      understanding: newUnderstanding,
+      updatedAt: now,
+    });
+  }
+
+  // 불변성을 지키며 데이터 갱신
+  inMemoryClassData = {
+    ...inMemoryClassData,
+    progress: updatedProgressList,
+  };
+
+  return inMemoryClassData;
+}
+
+

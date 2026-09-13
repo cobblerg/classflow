@@ -82,6 +82,9 @@ export default function DashboardSummary({ settings }: DashboardSummaryProps) {
           <span>🔴</span> 도움 필요
         </span>
         <span className="inline-flex items-center gap-1">
+          <span>🤔</span> 어려움
+        </span>
+        <span className="inline-flex items-center gap-1">
           <span>🔒</span> 비공개 차시
         </span>
       </div>

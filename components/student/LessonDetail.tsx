@@ -2,10 +2,23 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getCurrentClassData, setCurrentClassData, updateProgressStatus } from "@/lib/tempStore";
+import {
+  getCurrentClassData,
+  setCurrentClassData,
+  updateProgressStatus,
+  updateUnderstanding,
+} from "@/lib/tempStore";
 import { createClassData } from "@/lib/createClassData";
-import type { ClassFlowData, Student, Lesson, Progress, ProgressStatus } from "@/types";
+import type {
+  ClassFlowData,
+  Student,
+  Lesson,
+  Progress,
+  ProgressStatus,
+  Understanding,
+} from "@/types";
 import ProgressStatusSelector from "./ProgressStatusSelector";
+import UnderstandingSelector from "./UnderstandingSelector";
 
 interface LessonDetailProps {
   studentId: string; // 학생 고유 ID
@@ -20,6 +33,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
   const [progress, setProgress] = useState<Progress | null>(null);
   const [errorType, setErrorType] = useState<"student_not_found" | "lesson_not_found" | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+
 
 
   useEffect(() => {
@@ -166,6 +180,38 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
     }, 2500);
   };
 
+  // 9. 학생 이해도 변경 핸들러 (STEP 7: progress.status와 완전히 독립적으로 동작)
+  const handleUnderstandingChange = (newUnderstanding: Understanding) => {
+    if (!student || !lesson) return;
+
+    // lib/tempStore의 updateUnderstanding 호출 (status는 그대로 보존됨)
+    const updatedData = updateUnderstanding(student.id, lesson.id, newUnderstanding);
+    if (updatedData) {
+      setData(updatedData);
+      const updatedProgress = updatedData.progress.find(
+        (p) => p.studentId === student.id && p.lessonId === lesson.id
+      );
+      if (updatedProgress) {
+        setProgress(updatedProgress);
+      }
+    }
+
+    const labelMap: Record<string, string> = {
+      understood: "이해했어요",
+      difficult: "어려워요",
+      need_help: "도움이 필요해요",
+    };
+
+    if (newUnderstanding) {
+      setFeedbackMsg(`이해 상태가 '${labelMap[newUnderstanding]}'(으)로 변경되었습니다.`);
+    } else {
+      setFeedbackMsg("이해 상태 선택이 해제되었습니다.");
+    }
+    setTimeout(() => {
+      setFeedbackMsg(null);
+    }, 2500);
+  };
+
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col pb-12">
       {/* 상단 내비게이션 바 */}
@@ -228,7 +274,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
       </section>
 
       {/* 나의 진행 상태 변경 섹션 (STEP 6) */}
-      <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm mb-6">
+      <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm mb-5">
         <div className="flex items-center justify-between gap-2 mb-3">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <span className="text-xl">📌</span>
@@ -242,17 +288,37 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
           currentStatus={progress?.status || "not_started"}
           onStatusChange={handleStatusChange}
         />
+      </section>
+
+      {/* 이해 상태 선택 섹션 (STEP 7: 진행 상태와 독립적으로 운영) */}
+      <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm mb-6">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span className="text-xl">💭</span>
+            <span>이해 상태</span>
+          </h2>
+          <span className="text-xs text-slate-400">선택 취소 가능</span>
+        </div>
+        <p className="text-xs text-slate-500 mb-4">
+          지금 이 학습 내용을 얼마나 이해하고 있나요?
+        </p>
+
+        {/* 3가지 이해도 선택 버튼 컴포넌트 */}
+        <UnderstandingSelector
+          currentUnderstanding={progress?.understanding || null}
+          onUnderstandingChange={handleUnderstandingChange}
+        />
 
         {/* 상태 변경 성공 피드백 알림 토스트 */}
         {feedbackMsg && (
-          <div className="mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800 flex items-center gap-1.5 animate-fadeIn">
+          <div className="mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800 flex items-center gap-1.5 animate-fadeIn">
             <span>✓</span>
             <span>{feedbackMsg}</span>
           </div>
         )}
 
         <p className="mt-4 text-xs text-slate-400 leading-relaxed">
-          💡 상태를 변경하면 대시보드와 선생님 화면에 즉시 반영됩니다. (현재는 테스트 모드로 새로고침 시 초기화될 수 있습니다)
+          💡 이해 상태를 선택하면 선생님 대시보드에 즉시 반영되어 필요할 때 도움을 받을 수 있습니다.
         </p>
       </section>
 

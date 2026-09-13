@@ -33,13 +33,21 @@ export default function LessonCard({ lesson, progress, studentId }: LessonCardPr
       };
     }
 
+    // 이해도 보조 라벨 계산 (difficult 또는 understood)
+    let understandingLabel = "";
+    if (progress?.understanding === "difficult") {
+      understandingLabel = " · 🤔 어려움";
+    } else if (progress?.understanding === "understood") {
+      understandingLabel = " · 😊 이해함";
+    }
+
     // 3~5순위: 진행 상태별
     const status = progress?.status || "not_started";
     switch (status) {
       case "completed":
         return {
           icon: "🟢",
-          label: "완료",
+          label: `완료${understandingLabel}`,
           badgeStyle: "bg-emerald-50 text-emerald-700 border-emerald-200",
           cardStyle: "bg-white border-slate-200/80 shadow-xs hover:border-emerald-400 hover:shadow-md",
           isLocked: false,
@@ -47,7 +55,7 @@ export default function LessonCard({ lesson, progress, studentId }: LessonCardPr
       case "in_progress":
         return {
           icon: "🟡",
-          label: "진행 중",
+          label: `진행 중${understandingLabel}`,
           badgeStyle: "bg-amber-50 text-amber-700 border-amber-200",
           cardStyle: "bg-white border-slate-200/80 shadow-xs hover:border-amber-400 hover:shadow-md",
           isLocked: false,
@@ -56,7 +64,7 @@ export default function LessonCard({ lesson, progress, studentId }: LessonCardPr
       default:
         return {
           icon: "⚪",
-          label: "시작 전",
+          label: `시작 전${understandingLabel}`,
           badgeStyle: "bg-slate-50 text-slate-600 border-slate-200",
           cardStyle: "bg-white border-slate-200/80 shadow-xs hover:border-blue-400 hover:shadow-md",
           isLocked: false,
