@@ -2,14 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClassData } from "@/lib/createClassData";
+import { setCurrentClassData } from "@/lib/tempStore";
 import type { ClassSettings } from "@/types";
 
 // 수업 설정 폼 컴포넌트
 export default function ClassSetupForm() {
+  const router = useRouter();
+
   // 1. 입력 폼 상태 관리
   const [className, setClassName] = useState<string>("AI와 피지컬 컴퓨팅");
   const [studentCount, setStudentCount] = useState<number | string>(20);
   const [lessonCount, setLessonCount] = useState<number | string>(10);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // 2. 오류 메시지 상태 관리
   const [errors, setErrors] = useState<{
@@ -18,7 +24,7 @@ export default function ClassSetupForm() {
     lessonCount?: string;
   }>({});
 
-  // 3. STEP 1 제출 완료 결과 확인용 상태 (콘솔 출력 및 화면 안내)
+  // 3. STEP 2 제출 완료 결과 확인용 상태
   const [submittedSettings, setSubmittedSettings] = useState<ClassSettings | null>(null);
 
   // 입력값 검증 함수
@@ -54,7 +60,7 @@ export default function ClassSetupForm() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // 폼 제출 처리 핸들러
+  // 폼 제출 처리 핸들러 (STEP 2: createClassData 호출 및 데이터 생성)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -64,6 +70,8 @@ export default function ClassSetupForm() {
       return;
     }
 
+    setIsSubmitting(true);
+
     const newSettings: ClassSettings = {
       className: className.trim(),
       studentCount: Number(studentCount),
@@ -71,11 +79,18 @@ export default function ClassSetupForm() {
       createdAt: new Date().toISOString(),
     };
 
-    // STEP 1 명세에 따라 Console에 입력값 출력
-    console.log("[ClassFlow Setup - STEP 1] 입력된 수업 설정:", newSettings);
+    // 1. lib/createClassData를 통해 학생, 차시, Progress 데이터 동적 생성
+    const classFlowData = createClassData(newSettings);
 
-    // 사용자에게 성공 안내 표시
+    // 2. 브라우저 콘솔에 생성된 데이터 출력
+    console.log("[ClassFlow STEP 2] 생성된 전체 데이터:", classFlowData);
+
+    // 3. 임시 인메모리 스토어에 보관
+    setCurrentClassData(classFlowData);
     setSubmittedSettings(newSettings);
+
+    // 4. 생성 결과 확인 화면(/teacher)으로 이동
+    router.push("/teacher");
   };
 
   return (
@@ -93,10 +108,11 @@ export default function ClassSetupForm() {
             수업 설정
           </h1>
         </div>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
-          STEP 1
+        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800">
+          STEP 2
         </span>
       </div>
+
 
       <p className="text-sm text-slate-600 mb-8 leading-relaxed">
         진행할 수업의 기본 정보를 입력해 주세요. 입력한 학생 수와 차시에 맞춰 대시보드가 자동으로 구성됩니다.
@@ -226,30 +242,14 @@ export default function ClassSetupForm() {
         <div className="pt-2">
           <button
             type="submit"
-            className="w-full inline-flex items-center justify-center px-6 py-4 rounded-xl text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.99] transition-all shadow-md shadow-blue-500/20"
+            disabled={isSubmitting}
+            className="w-full inline-flex items-center justify-center px-6 py-4 rounded-xl text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.99] disabled:bg-blue-300 disabled:cursor-not-allowed transition-all shadow-md shadow-blue-500/20"
           >
-            수업 만들기
+            {isSubmitting ? "데이터 생성 중..." : "수업 만들기"}
           </button>
         </div>
       </form>
 
-      {/* STEP 1 완료 피드백 알림 (콘솔 출력 및 유효성 검증 성공 안내) */}
-      {submittedSettings && (
-        <div className="mt-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm">
-          <div className="flex items-center gap-2 font-semibold mb-2">
-            <span className="text-emerald-600">✓</span>
-            입력값 검증 완료 (콘솔에 출력됨)
-          </div>
-          <div className="text-xs text-emerald-800 space-y-1">
-            <p>• 수업명: <strong>{submittedSettings.className}</strong></p>
-            <p>• 학생 수: <strong>{submittedSettings.studentCount}명</strong></p>
-            <p>• 차시 수: <strong>{submittedSettings.lessonCount}차시</strong></p>
-            <p className="pt-1.5 text-emerald-700 font-medium">
-              ※ STEP 1 요구사항에 따라 현재 단계에서는 Console 출력까지 구현되었습니다. 다음 STEP 2에서 동적 데이터 생성이 연동됩니다.
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
