@@ -15,8 +15,9 @@ import ClassSettingsPanel from "./ClassSettingsPanel";
 import LessonVisibilityManager from "./LessonVisibilityManager";
 import HelpQueue from "./HelpQueue";
 import ProgressGrid from "./ProgressGrid";
+import { getRoleLabels } from "@/lib/roleLabels";
 
-// Teacher Dashboard 메인 클라이언트 컴포넌트
+// Teacher/Instructor Dashboard 메인 클라이언트 컴포넌트
 export default function TeacherDashboard() {
   const [data, setData] = useState<ClassFlowData | null>(null);
 
@@ -38,7 +39,7 @@ export default function TeacherDashboard() {
     setData(currentData);
   }, []);
 
-  // 교사의 도움 완료(resolve) 처리 핸들러 (STEP 10)
+  // 교사/강사의 도움 완료(resolve) 처리 핸들러 (STEP 10)
   const handleResolveHelp = (helpRequestId: string) => {
     const success = resolveHelpRequest(helpRequestId);
     if (success) {
@@ -52,10 +53,11 @@ export default function TeacherDashboard() {
 
   // 차시 공개/비공개 토글 핸들러 (STEP 12)
   const handleToggleLesson = (lessonId: string, currentPublished: boolean, title: string) => {
+    const currentRoleLabels = getRoleLabels(data?.settings);
     // 공개 ➡️ 비공개 전환 시 교사 실수 방지 확인 다이얼로그 (요구사항 14번)
     if (currentPublished) {
       const confirmed = window.confirm(
-        `'${title}'를 비공개로 변경할까요?\n\n학생은 더 이상 이 차시에 접근할 수 없습니다.\n(기존 진행 데이터와 피드백은 안전하게 보존됩니다.)`
+        `'${title}'를 비공개로 변경할까요?\n\n${currentRoleLabels.participant}은(는) 더 이상 이 차시에 접근할 수 없습니다.\n(기존 진행 데이터와 피드백은 안전하게 보존됩니다.)`
       );
       if (!confirmed) return;
     }
@@ -86,6 +88,7 @@ export default function TeacherDashboard() {
   }
 
   const { settings, students, lessons, progress } = data;
+  const roleLabels = getRoleLabels(settings);
 
   // 전체 데이터로부터 도움 대기열(Help Queue) 산출
   const helpQueueItems = buildHelpQueue(data);
@@ -99,20 +102,23 @@ export default function TeacherDashboard() {
       <HelpQueue
         items={helpQueueItems}
         onResolve={handleResolveHelp}
+        roleLabels={roleLabels}
       />
 
-      {/* 3. 학생 × 차시 진행도 격자판 (Progress Grid - 2순위 전체 학습 상황 영역) */}
+      {/* 3. 참여자 × 차시 진행도 격자판 (Progress Grid - 2순위 전체 학습 상황 영역) */}
       <ProgressGrid
         students={students}
         lessons={lessons}
         progress={progress}
         onToggleLesson={handleToggleLesson}
+        roleLabels={roleLabels}
       />
 
       {/* 4. 차시 공개 관리 패널 (3순위 차시 운영 관리) */}
       <LessonVisibilityManager
         lessons={lessons}
         onToggleLesson={handleToggleLesson}
+        roleLabels={roleLabels}
       />
 
       {/* 5. 학급 기본 설정 패널 (4순위 학급 메타정보 설정) */}

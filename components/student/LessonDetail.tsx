@@ -20,6 +20,7 @@ import type {
 import ProgressStatusSelector from "./ProgressStatusSelector";
 import UnderstandingSelector from "./UnderstandingSelector";
 import HelpRequestPanel from "./HelpRequestPanel";
+import { getRoleLabels } from "@/lib/roleLabels";
 
 interface LessonDetailProps {
   studentId: string; // 학생 고유 ID
@@ -35,7 +36,8 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
   const [errorType, setErrorType] = useState<"student_not_found" | "lesson_not_found" | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
-
+  // 역할 명칭 추출 (설정값 기반 또는 기본값 강사/수강생)
+  const roleLabels = getRoleLabels(data?.settings);
 
   useEffect(() => {
     // 1. 메모리 저장소에서 현재 수업 데이터 가져오기
@@ -94,16 +96,16 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
       <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm text-center">
         <div className="text-4xl mb-3">🔍</div>
         <h2 className="text-xl font-bold text-slate-900 mb-2">
-          학생을 찾을 수 없습니다
+          {roleLabels.participant}을(를) 찾을 수 없습니다
         </h2>
         <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-          요청하신 학생 ID (<code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono text-xs">{studentId}</code>)는 존재하지 않습니다.
+          요청하신 ID (<code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono text-xs">{studentId}</code>)는 존재하지 않습니다.
         </p>
         <Link
           href="/student"
           className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
         >
-          ← 학생 선택으로 돌아가기
+          ← {roleLabels.participant} 선택으로 돌아가기
         </Link>
       </div>
     );
@@ -139,7 +141,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
           아직 공개되지 않은 차시입니다
         </h2>
         <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-          선생님이 차시를 공개하면 과제를 확인하고 학습을 진행할 수 있습니다.
+          {roleLabels.instructor}가 차시를 공개하면 과제를 확인하고 학습을 진행할 수 있습니다.
         </p>
         <Link
           href={`/student/${studentId}`}
@@ -335,24 +337,25 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
         )}
 
         <p className="mt-4 text-xs text-slate-400 leading-relaxed">
-          💡 이해 상태를 선택하면 선생님 대시보드에 즉시 반영되어 필요할 때 도움을 받을 수 있습니다.
+          💡 이해 상태를 선택하면 {roleLabels.instructor} 대시보드에 즉시 반영되어 필요할 때 도움을 받을 수 있습니다.
         </p>
       </section>
 
-      {/* 5. 선생님께 도움 요청 섹션 (STEP 9) */}
+      {/* 5. 도움 요청 섹션 (STEP 9) */}
       <HelpRequestPanel
         studentId={student.id}
         lessonId={lesson.id}
         currentHelpRequest={currentHelpRequest}
         onHelpRequestChange={handleHelpRequestChange}
+        roleLabels={roleLabels}
       />
 
-      {/* 6. 선생님 피드백 섹션 (STEP 11: 학생 조회 전용) */}
+      {/* 6. 피드백 섹션 (STEP 11: 학생 조회 전용) */}
       <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm mb-6">
         <div className="flex items-center justify-between gap-2 mb-3">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <span className="text-xl">💬</span>
-            <span>선생님 피드백</span>
+            <span>{roleLabels.instructor} 피드백</span>
           </h2>
           {data?.feedback?.find((f) => f.studentId === student.id && f.lessonId === lesson.id) && (
             <span className="text-xs text-slate-400">
@@ -369,7 +372,7 @@ export default function LessonDetail({ studentId, lessonId }: LessonDetailProps)
           </div>
         ) : (
           <p className="text-xs sm:text-sm text-slate-400 italic py-1">
-            아직 등록된 선생님 피드백이 없습니다. 과제를 진행하면 선생님이 피드백을 남겨주실 거예요.
+            아직 등록된 {roleLabels.instructor} 피드백이 없습니다. 과제를 진행하면 {roleLabels.instructor}가 피드백을 남겨주실 거예요.
           </p>
         )}
       </section>

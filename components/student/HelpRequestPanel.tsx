@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import type { HelpRequest } from "@/types";
+import type { HelpRequest, RoleLabels } from "@/types";
 import { createHelpRequest, cancelHelpRequest } from "@/lib/tempStore";
+import { DEFAULT_ROLE_LABELS } from "@/lib/roleLabels";
 
 interface HelpRequestPanelProps {
   studentId: string;
   lessonId: string;
   currentHelpRequest: HelpRequest | null;
   onHelpRequestChange: () => void; // 상태 변경 시 부모 컴포넌트에 알리는 콜백
+  roleLabels?: RoleLabels;
 }
 
 // 학생 차시 상세 화면의 도움 요청(Help Request) 패널 컴포넌트
@@ -17,6 +19,7 @@ export default function HelpRequestPanel({
   lessonId,
   currentHelpRequest,
   onHelpRequestChange,
+  roleLabels = DEFAULT_ROLE_LABELS,
 }: HelpRequestPanelProps) {
   const [message, setMessage] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -78,7 +81,7 @@ export default function HelpRequestPanel({
               </span>
               <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-1.5">
                 <span>🙋</span>
-                <span>선생님께 도움 요청 중</span>
+                <span>{roleLabels.instructor}에게 도움 요청 중</span>
               </h2>
             </div>
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
@@ -87,7 +90,7 @@ export default function HelpRequestPanel({
           </div>
 
           <p className="text-sm text-slate-600">
-            선생님에게 도움을 요청했습니다. 곧 선생님이 확인하고 도와주실 거예요.
+            {roleLabels.instructor}에게 도움을 요청했습니다. 곧 {roleLabels.instructor}가 확인하고 도와주실 거예요.
           </p>
 
           {/* 요청 상세 카드 */}
@@ -126,11 +129,11 @@ export default function HelpRequestPanel({
               <span className="text-xl">🙋</span>
               <span>도움이 필요한가요?</span>
             </h2>
-            <span className="text-xs text-slate-400">선생님께 직접 요청</span>
+            <span className="text-xs text-slate-400">{roleLabels.instructor}에게 직접 요청</span>
           </div>
 
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            혼자 해결하기 어렵다면 언제든지 선생님에게 도움을 요청하세요.
+            혼자 해결하기 어렵다면 언제든지 {roleLabels.instructor}에게 도움을 요청할 수 있어요.
           </p>
 
           {/* 메시지 입력창 (선택 사항) */}
@@ -159,7 +162,7 @@ export default function HelpRequestPanel({
               className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-4 rounded-2xl text-sm sm:text-base font-bold text-white bg-amber-500 hover:bg-amber-600 active:scale-[0.99] disabled:bg-amber-300 transition-all shadow-sm shadow-amber-500/20"
             >
               <span>🙋</span>
-              <span>선생님께 도움 요청하기</span>
+              <span>{roleLabels.instructor}에게 도움 요청하기</span>
             </button>
           </div>
         </form>

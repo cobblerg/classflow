@@ -14,8 +14,9 @@ export function createClassData(settings: ClassSettings): ClassFlowData {
   // 현재 시각 (ISO 문자열 형태)
   const now = new Date().toISOString();
 
-  // 1. 학생 목록 동적 생성 (1 ~ studentCount)
-  // 예: 1 -> id: "student-01", number: 1, name: "학생01"
+  // 1. 참여자 목록 동적 생성 (1 ~ studentCount)
+  // 역할 명칭(settings.roleLabels.participant)에 따라 기본 이름 접두사 결정 (예: 수강생01, 학생01, 참여자01)
+  const participantPrefix = settings.roleLabels?.participant?.trim() || "수강생";
   const students: Student[] = [];
   for (let i = 1; i <= settings.studentCount; i++) {
     // 2자리 숫자로 맞추기 (예: 1 -> "01", 10 -> "10")
@@ -23,7 +24,7 @@ export function createClassData(settings: ClassSettings): ClassFlowData {
     students.push({
       id: `student-${paddedNumber}`,
       number: i,
-      name: `학생${paddedNumber}`,
+      name: `${participantPrefix}${paddedNumber}`,
     });
   }
 

@@ -1,17 +1,17 @@
-"use client";
-
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearCurrentClassData } from "@/lib/tempStore";
+import { getRoleLabels } from "@/lib/roleLabels";
 import type { ClassSettings } from "@/types";
 
 interface DashboardSummaryProps {
-  settings: ClassSettings; // 수업 설정 정보
+  settings: ClassSettings; // 강의 설정 정보
 }
 
-// 교사 대시보드 상단 헤더 및 기본 정보 요약 컴포넌트
+// 교사/강사 대시보드 상단 헤더 및 기본 정보 요약 컴포넌트
 export default function DashboardSummary({ settings }: DashboardSummaryProps) {
   const router = useRouter();
+  const roleLabels = getRoleLabels(settings);
 
   // 테스트 데이터 전체 초기화 핸들러 (STEP 8)
   const handleReset = () => {
@@ -37,25 +37,25 @@ export default function DashboardSummary({ settings }: DashboardSummaryProps) {
             Class<span className="text-blue-600">Flow</span>
           </Link>
           <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-            교사용 대시보드
+            {roleLabels.instructor} 대시보드
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* 학생 화면 이동 버튼 */}
+          {/* 수강생/학생 화면 이동 버튼 */}
           <Link
             href="/student"
             className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 active:scale-[0.98] transition-all"
           >
-            👥 학생 화면
+            👥 {roleLabels.participant} 화면
           </Link>
 
-          {/* 수업 설정으로 이동 버튼 */}
+          {/* 강의 설정으로 이동 버튼 */}
           <Link
             href="/setup"
             className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] transition-all"
           >
-            ⚙️ 설정 변경
+            ⚙️ 강의 설정
           </Link>
 
           {/* 데이터 초기화 버튼 (STEP 8) */}
@@ -70,21 +70,21 @@ export default function DashboardSummary({ settings }: DashboardSummaryProps) {
         </div>
       </div>
 
-      {/* 2. 수업명 및 규모(학생 수, 차시 수) 표시 (간소화 및 긴 학급명 줄바꿈 방어) */}
+      {/* 2. 강의명 및 규모(수강생 수, 차시 수) 표시 (간소화 및 긴 강의명 줄바꿈 방어) */}
       <div className="pt-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="min-w-0">
           <span className="text-xs font-medium text-slate-400 block mb-0.5">
-            진행 중인 수업
+            진행 중인 강의
           </span>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight break-keep break-words">
             {settings.className}
           </h2>
         </div>
 
-        {/* 학생 수 / 차시 수 요약 배지 */}
+        {/* 수강생 수 / 차시 수 요약 배지 */}
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 shrink-0">
           <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-1.5">
-            <span className="text-slate-400 font-normal">학생</span>
+            <span className="text-slate-400 font-normal">{roleLabels.participant}</span>
             <strong className="text-slate-900 font-bold">{settings.studentCount}명</strong>
           </div>
           <span className="text-slate-300">•</span>

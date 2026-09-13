@@ -1,16 +1,19 @@
 "use client";
 
-import type { Lesson } from "@/types";
+import type { Lesson, RoleLabels } from "@/types";
+import { DEFAULT_ROLE_LABELS } from "@/lib/roleLabels";
 
 interface LessonVisibilityManagerProps {
   lessons: Lesson[];
   onToggleLesson: (lessonId: string, currentPublished: boolean, title: string) => void;
+  roleLabels?: RoleLabels;
 }
 
-// 교사용 차시 공개/비공개 제어 및 상태 모니터링 패널 컴포넌트 (STEP 12)
+// 교사/강사용 차시 공개/비공개 제어 및 상태 모니터링 패널 컴포넌트 (STEP 12, STEP 16 범용화)
 export default function LessonVisibilityManager({
   lessons,
   onToggleLesson,
+  roleLabels = DEFAULT_ROLE_LABELS,
 }: LessonVisibilityManagerProps) {
   const publishedCount = lessons.filter((l) => l.published).length;
   const hiddenCount = lessons.length - publishedCount;
@@ -25,7 +28,7 @@ export default function LessonVisibilityManager({
             차시 공개 관리
           </h3>
           <span className="text-xs text-slate-400 font-normal">
-            (클릭하여 학생 공개 여부 변경)
+            (클릭하여 {roleLabels.participant} 공개 여부 변경)
           </span>
         </div>
 
@@ -88,7 +91,7 @@ export default function LessonVisibilityManager({
                     : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
                 }`}
               >
-                {isPublished ? "🔒 비공개로 전환" : "🔓 학생에게 공개"}
+                {isPublished ? "🔒 비공개로 전환" : `🔓 ${roleLabels.participant}에게 공개`}
               </button>
             </div>
           );
@@ -96,7 +99,7 @@ export default function LessonVisibilityManager({
       </div>
 
       <p className="mt-3 text-[11px] text-slate-400">
-        💡 차시를 비공개로 전환하더라도 기존 학생의 과제 진행도와 피드백 데이터는 안전하게 보존됩니다.
+        💡 차시를 비공개로 전환하더라도 기존 {roleLabels.participant}의 과제 진행도와 피드백 데이터는 안전하게 보존됩니다.
       </p>
     </div>
   );

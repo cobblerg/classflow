@@ -1,22 +1,25 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Feedback } from "@/types";
+import type { Feedback, RoleLabels } from "@/types";
 import { saveFeedback } from "@/lib/tempStore";
+import { getJosa } from "@/lib/roleLabels";
 
 interface FeedbackEditorProps {
   studentId: string;
   lessonId: string;
   existingFeedback: Feedback | null;
   onFeedbackSaved: () => void;
+  roleLabels?: RoleLabels;
 }
 
-// 교사가 학생에게 전달할 피드백을 작성하고 수정하는 에디터 컴포넌트 (STEP 11)
+// 교사/강사가 참여자에게 전달할 피드백을 작성하고 수정하는 에디터 컴포넌트 (STEP 11, STEP 16 범용화)
 export default function FeedbackEditor({
   studentId,
   lessonId,
   existingFeedback,
   onFeedbackSaved,
+  roleLabels = { instructor: "강사", participant: "수강생" },
 }: FeedbackEditorProps) {
   const [content, setContent] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -79,7 +82,7 @@ export default function FeedbackEditor({
       <div className="flex items-center justify-between gap-2 mb-2">
         <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
           <span className="text-xl">💬</span>
-          <span>교사 피드백</span>
+          <span>{roleLabels.instructor} 피드백</span>
         </h2>
         {existingFeedback && (
           <span className="text-xs text-slate-400">
@@ -89,7 +92,7 @@ export default function FeedbackEditor({
       </div>
 
       <p className="text-xs sm:text-sm text-slate-600 mb-4 leading-relaxed">
-        학생이 학습을 진행하며 참고할 수 있도록 격려나 지도 조언을 남겨주세요. 학생 화면에 실시간으로 표시됩니다.
+        {getJosa(roleLabels.participant, "이/가")} 학습을 진행하며 참고할 수 있도록 격려나 지도 조언을 남겨주세요. {roleLabels.participant} 화면에 실시간으로 표시됩니다.
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">

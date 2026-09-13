@@ -1,11 +1,18 @@
 // ClassFlow 데이터 모델 정의 (타입 정의)
 
-// 1. 수업 기본 설정 정보
+// 0. 역할 명칭 설정 (강사/수강생, 교사/학생, 진행자/참여자 등, STEP 16)
+export type RoleLabels = {
+  instructor: string;   // 진행/지도자 명칭 (예: "강사", "교사", "진행자")
+  participant: string;  // 학습/참여자 명칭 (예: "수강생", "학생", "참여자")
+};
+
+// 1. 수업/강의 기본 설정 정보
 export type ClassSettings = {
-  className: string;      // 수업 이름
-  studentCount: number;   // 학생 수
-  lessonCount: number;    // 차시(수업 단위) 수
-  createdAt: string;      // 생성 일시 (ISO 문자열)
+  className: string;        // 강의/수업 이름
+  studentCount: number;     // 수강생/학생 수
+  lessonCount: number;      // 차시(수업 단위) 수
+  createdAt: string;        // 생성 일시 (ISO 문자열)
+  roleLabels?: RoleLabels;  // 화면 표시용 역할 명칭 설정 (미존재 시 기본값 강사/수강생)
 };
 
 // 2. 학생 정보

@@ -22,14 +22,14 @@ export function createDemoClassData(): ClassFlowData {
   const getRelativeIso = (minutesAgo: number) =>
     new Date(now - minutesAgo * 60 * 1000).toISOString();
 
-  // 1. 학생 20명 생성 (개인정보 보호 가명: 01 학생01 ~ 20 학생20)
+  // 1. 참여자 20명 생성 (개인정보 보호 가명: 01 수강생01 ~ 20 수강생20, ID는 student-XX 호환 유지)
   const students: Student[] = Array.from({ length: 20 }, (_, idx) => {
     const num = idx + 1;
     const padded = String(num).padStart(2, "0");
     return {
       id: `student-${padded}`,
       number: num,
-      name: `학생${padded}`,
+      name: `수강생${padded}`,
     };
   });
 
@@ -304,6 +304,10 @@ export function createDemoClassData(): ClassFlowData {
       studentCount: 20,
       lessonCount: 10,
       createdAt: getRelativeIso(60),
+      roleLabels: {
+        instructor: "강사",
+        participant: "수강생",
+      },
     },
     students,
     lessons,

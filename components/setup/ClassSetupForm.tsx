@@ -6,9 +6,12 @@ import { useRouter } from "next/navigation";
 import { createClassData } from "@/lib/createClassData";
 import { createDemoClassData } from "@/data/demoData";
 import { setCurrentClassData, getCurrentClassData } from "@/lib/tempStore";
-import type { ClassSettings } from "@/types";
+import { DEFAULT_ROLE_LABELS, SCHOOL_ROLE_LABELS } from "@/lib/roleLabels";
+import type { ClassSettings, RoleLabels } from "@/types";
 
-// 수업 설정 폼 컴포넌트
+type PresetType = "general" | "school" | "custom";
+
+// 수업/강의 설정 폼 컴포넌트 (STEP 16 범용화)
 export default function ClassSetupForm() {
   const router = useRouter();
 
@@ -16,6 +19,9 @@ export default function ClassSetupForm() {
   const [className, setClassName] = useState<string>("AI와 피지컬 컴퓨팅");
   const [studentCount, setStudentCount] = useState<number | string>(20);
   const [lessonCount, setLessonCount] = useState<number | string>(10);
+  const [preset, setPreset] = useState<PresetType>("general");
+  const [instructorLabel, setInstructorLabel] = useState<string>("강사");
+  const [participantLabel, setParticipantLabel] = useState<string>("수강생");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // 2. 오류 메시지 상태 관리
@@ -23,10 +29,24 @@ export default function ClassSetupForm() {
     className?: string;
     studentCount?: string;
     lessonCount?: string;
+    instructorLabel?: string;
+    participantLabel?: string;
   }>({});
 
-  // 3. STEP 2 제출 완료 결과 확인용 상태
+  // 3. 제출 완료 결과 확인용 상태
   const [submittedSettings, setSubmittedSettings] = useState<ClassSettings | null>(null);
+
+  // 프리셋 변경 핸들러 (일반 강의: 강사/수강생, 학교 수업: 교사/학생, 직접 설정: 사용자 지정)
+  const handlePresetChange = (newPreset: PresetType) => {
+    setPreset(newPreset);
+    if (newPreset === "general") {
+      setInstructorLabel(DEFAULT_ROLE_LABELS.instructor);
+      setParticipantLabel(DEFAULT_ROLE_LABELS.participant);
+    } else if (newPreset === "school") {
+      setInstructorLabel(SCHOOL_ROLE_LABELS.instructor);
+      setParticipantLabel(SCHOOL_ROLE_LABELS.participant);
+    }
+  };
 
   // 입력값 검증 함수
   const validateForm = (): boolean => {
@@ -34,19 +54,21 @@ export default function ClassSetupForm() {
       className?: string;
       studentCount?: string;
       lessonCount?: string;
+      instructorLabel?: string;
+      participantLabel?: string;
     } = {};
 
-    // 수업명 검증
+    // 강의명 검증
     if (!className.trim()) {
-      newErrors.className = "수업명을 입력해 주세요.";
+      newErrors.className = "강의명을 입력해 주세요.";
     }
 
-    // 학생 수 검증 (1 ~ 40)
+    // 참여자 수 검증 (1 ~ 40)
     const parsedStudents = Number(studentCount);
     if (isNaN(parsedStudents) || !Number.isInteger(parsedStudents)) {
-      newErrors.studentCount = "학생 수를 숫자로 정확히 입력해 주세요.";
+      newErrors.studentCount = `${participantLabel} 수를 숫자로 정확히 입력해 주세요.`;
     } else if (parsedStudents < 1 || parsedStudents > 40) {
-      newErrors.studentCount = "학생 수는 1명에서 40명 사이로 입력해 주세요.";
+      newErrors.studentCount = `${participantLabel} 수는 1명에서 40명 사이로 입력해 주세요.`;
     }
 
     // 차시 수 검증 (1 ~ 30)
@@ -57,11 +79,21 @@ export default function ClassSetupForm() {
       newErrors.lessonCount = "차시 수는 1차시에서 30차시 사이로 입력해 주세요.";
     }
 
+    // 직접 설정 시 역할 명칭 검증
+    if (preset === "custom") {
+      if (!instructorLabel.trim()) {
+        newErrors.instructorLabel = "지도자/진행자 명칭을 입력해 주세요.";
+      }
+      if (!participantLabel.trim()) {
+        newErrors.participantLabel = "참여자/학습자 명칭을 입력해 주세요.";
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // 폼 제출 처리 핸들러 (STEP 2: createClassData 호출 및 데이터 생성)
+  // 폼 제출 처리 핸들러
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -73,33 +105,36 @@ export default function ClassSetupForm() {
 
     setIsSubmitting(true);
 
+    const roleLabels: RoleLabels = {
+      instructor: instructorLabel.trim() || DEFAULT_ROLE_LABELS.instructor,
+      participant: participantLabel.trim() || DEFAULT_ROLE_LABELS.participant,
+    };
+
     const newSettings: ClassSettings = {
       className: className.trim(),
       studentCount: Number(studentCount),
       lessonCount: Number(lessonCount),
       createdAt: new Date().toISOString(),
+      roleLabels,
     };
 
-    // 1. lib/createClassData를 통해 학생, 차시, Progress 데이터 동적 생성
+    // 1. lib/createClassData를 통해 학생(수강생), 차시, Progress 데이터 동적 생성
     const classFlowData = createClassData(newSettings);
 
-    // 2. 브라우저 콘솔에 생성된 데이터 출력
-    console.log("[ClassFlow STEP 2] 생성된 전체 데이터:", classFlowData);
-
-    // 3. 임시 인메모리 스토어에 보관
+    // 2. 임시 인메모리 스토어 및 localStorage에 보관
     setCurrentClassData(classFlowData);
     setSubmittedSettings(newSettings);
 
-    // 4. 생성 결과 확인 화면(/teacher)으로 이동
+    // 3. 생성 결과 확인 화면(/teacher)으로 이동
     router.push("/teacher");
   };
 
-  // 데모 학급 시작 핸들러 (STEP 13, 기존 데이터 보호 확인 포함)
+  // 데모 강의 시작 핸들러 (STEP 13, 기존 데이터 보호 확인 포함)
   const handleStartDemo = () => {
     const existingData = getCurrentClassData();
     if (existingData) {
       const confirmed = window.confirm(
-        "현재 저장된 학급 데이터가 있습니다.\n\n데모 학급을 시작하면 현재 데이터가 데모 데이터로 교체됩니다.\n\n계속하시겠습니까?"
+        "현재 저장된 강의 데이터가 있습니다.\n\n데모 강의를 시작하면 현재 데이터가 데모 데이터로 교체됩니다.\n\n계속하시겠습니까?"
       );
       if (!confirmed) return;
     }
@@ -121,41 +156,41 @@ export default function ClassSetupForm() {
             ← 메인으로 돌아가기
           </Link>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
-            수업 설정
+            강의 설정
           </h1>
         </div>
         <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800">
-          STEP 2
+          설정
         </span>
       </div>
 
-      {/* MVP 로컬 브라우저 저장 및 개인정보 보호 안내 배너 (STEP 8) */}
+      {/* MVP 로컬 브라우저 저장 및 개인정보 보호 안내 배너 */}
       <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm leading-relaxed mb-6">
         <div className="flex items-center gap-1.5 font-bold mb-1">
           <span>⚠</span>
           <span>MVP 테스트 버전</span>
         </div>
         <p className="text-amber-800">
-          현재 데이터는 이 브라우저에만 저장됩니다. 실제 학생 개인정보 대신 테스트용 이름을 사용하세요.
+          현재 데이터는 이 브라우저에만 저장됩니다. 실제 개인정보 대신 테스트용 이름을 사용하세요.
         </p>
       </div>
 
-      {/* 🎓 데모 학급으로 시작하기 빠른 실행 카드 (STEP 13) */}
+      {/* 🎓 데모 강의로 시작하기 빠른 실행 카드 (STEP 13) */}
       <div className="p-5 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-indigo-950 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
         <div>
           <div className="flex items-center gap-1.5 font-bold text-sm text-indigo-900 mb-1">
             <span>🎓</span>
-            <span>데모 학급으로 시작하기</span>
+            <span>데모 강의로 시작하기</span>
           </div>
           <p className="text-xs text-indigo-700 leading-relaxed">
-            학생들의 다양한 학습 상태(진행도, 이해도, 도움 요청 등)가 미리 입력된 테스트용 학급(20명×10차시)을 바로 체험할 수 있습니다.
+            수강생들의 다양한 학습 상태(진행도, 이해도, 도움 요청 등)가 미리 입력된 테스트용 강의(20명×10차시)를 바로 체험할 수 있습니다.
           </p>
         </div>
 
         <button
           type="button"
           onClick={handleStartDemo}
-          className="shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-sm shadow-indigo-500/20 text-center"
+          className="shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-sm shadow-indigo-500/20 text-center cursor-pointer"
         >
           데모 시작 →
         </button>
@@ -163,23 +198,110 @@ export default function ClassSetupForm() {
 
       <div className="relative flex py-1 items-center mb-6">
         <div className="flex-grow border-t border-slate-200"></div>
-        <span className="flex-shrink mx-4 text-xs font-semibold text-slate-400">또는 직접 새 학급 설정</span>
+        <span className="flex-shrink mx-4 text-xs font-semibold text-slate-400">또는 새 강의 직접 설정</span>
         <div className="flex-grow border-t border-slate-200"></div>
       </div>
 
       <p className="text-sm text-slate-600 mb-6 leading-relaxed">
-        진행할 수업의 기본 정보를 입력해 주세요. 입력한 학생 수와 차시에 맞춰 대시보드가 자동으로 구성됩니다.
+        진행할 강의의 기본 정보와 사용 환경을 선택해 주세요. 입력한 규모와 명칭에 맞춰 대시보드가 자동으로 구성됩니다.
       </p>
 
       {/* 설정 폼 영역 */}
       <form onSubmit={handleSubmit} noValidate className="space-y-6">
-        {/* 1. 수업명 입력 */}
+        {/* 사용 환경 프리셋 선택 (요구사항 #6, #7, #8, #9) */}
+        <div>
+          <label className="block text-sm font-semibold text-slate-800 mb-2">
+            사용 환경 프리셋 <span className="text-red-500">*</span>
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {/* 1. 일반 강의 / 특강 */}
+            <button
+              type="button"
+              onClick={() => handlePresetChange("general")}
+              className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                preset === "general"
+                  ? "border-blue-500 bg-blue-50/70 ring-2 ring-blue-200"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
+              }`}
+            >
+              <div className="text-xs font-bold text-slate-900 mb-0.5">일반 강의 / 특강</div>
+              <div className="text-[11px] text-slate-500 font-medium">강사 / 수강생</div>
+            </button>
+
+            {/* 2. 학교 수업 */}
+            <button
+              type="button"
+              onClick={() => handlePresetChange("school")}
+              className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                preset === "school"
+                  ? "border-blue-500 bg-blue-50/70 ring-2 ring-blue-200"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
+              }`}
+            >
+              <div className="text-xs font-bold text-slate-900 mb-0.5">학교 수업</div>
+              <div className="text-[11px] text-slate-500 font-medium">교사 / 학생</div>
+            </button>
+
+            {/* 3. 직접 설정 */}
+            <button
+              type="button"
+              onClick={() => handlePresetChange("custom")}
+              className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                preset === "custom"
+                  ? "border-blue-500 bg-blue-50/70 ring-2 ring-blue-200"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
+              }`}
+            >
+              <div className="text-xs font-bold text-slate-900 mb-0.5">직접 설정</div>
+              <div className="text-[11px] text-slate-500 font-medium">사용자 지정</div>
+            </button>
+          </div>
+
+          {/* 직접 설정 시 명칭 입력 필드 */}
+          {preset === "custom" && (
+            <div className="mt-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  지도자 명칭 (예: 진행자, 멘토)
+                </label>
+                <input
+                  type="text"
+                  value={instructorLabel}
+                  onChange={(e) => setInstructorLabel(e.target.value)}
+                  placeholder="진행자"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                {errors.instructorLabel && (
+                  <p className="mt-1 text-[11px] text-red-600">{errors.instructorLabel}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  참여자 명칭 (예: 참여자, 멘티)
+                </label>
+                <input
+                  type="text"
+                  value={participantLabel}
+                  onChange={(e) => setParticipantLabel(e.target.value)}
+                  placeholder="참여자"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                {errors.participantLabel && (
+                  <p className="mt-1 text-[11px] text-red-600">{errors.participantLabel}</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 1. 강의명 입력 */}
         <div>
           <label
             htmlFor="className"
             className="block text-sm font-semibold text-slate-800 mb-2"
           >
-            수업명 <span className="text-red-500">*</span>
+            강의명 <span className="text-red-500">*</span>
           </label>
           <input
             id="className"
@@ -204,18 +326,18 @@ export default function ClassSetupForm() {
             </p>
           ) : (
             <p className="mt-1.5 text-xs text-slate-400">
-              수업 주제나 과목 이름을 자유롭게 적어주세요.
+              강의나 수업의 주제, 과목명을 적어주세요.
             </p>
           )}
         </div>
 
-        {/* 2. 학생 수 입력 */}
+        {/* 2. 참여자 수 입력 (수강생 수 / 학생 수 동적 반영) */}
         <div>
           <label
             htmlFor="studentCount"
             className="block text-sm font-semibold text-slate-800 mb-2"
           >
-            학생 수 <span className="text-red-500">*</span>
+            {participantLabel} 수 <span className="text-red-500">*</span>
             <span className="ml-1.5 text-xs font-normal text-slate-500">
               (1 ~ 40명)
             </span>
@@ -298,7 +420,7 @@ export default function ClassSetupForm() {
             disabled={isSubmitting}
             className="w-full inline-flex items-center justify-center px-6 py-4 rounded-xl text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.99] disabled:bg-blue-300 disabled:cursor-not-allowed transition-all shadow-md shadow-blue-500/20"
           >
-            {isSubmitting ? "데이터 생성 중..." : "수업 만들기"}
+            {isSubmitting ? "데이터 생성 중..." : "강의 만들기"}
           </button>
         </div>
       </form>

@@ -53,9 +53,18 @@ export function loadClassFlowData(): ClassFlowData | null {
       return null;
     }
 
+    // 이전 버전 데이터 호환: settings.roleLabels가 누락된 경우 기본값(강사/수강생) 적용 (STEP 16)
+    const normalizedRoleLabels = {
+      instructor: parsed.settings?.roleLabels?.instructor?.trim() || "강사",
+      participant: parsed.settings?.roleLabels?.participant?.trim() || "수강생",
+    };
+
     // 향후 확장을 대비하여 빈 배열 필드가 누락되지 않도록 보정
     const validatedData: ClassFlowData = {
-      settings: parsed.settings,
+      settings: {
+        ...parsed.settings,
+        roleLabels: normalizedRoleLabels,
+      },
       students: parsed.students,
       lessons: parsed.lessons,
       progress: parsed.progress,

@@ -4,14 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getCurrentClassData, setCurrentClassData } from "@/lib/tempStore";
 import { createClassData } from "@/lib/createClassData";
+import { getRoleLabels, getJosa } from "@/lib/roleLabels";
 import type { ClassFlowData, Student } from "@/types";
 import LessonCard from "./LessonCard";
 
 interface StudentDashboardProps {
-  studentId: string; // URL 경로에서 전달받은 학생 ID
+  studentId: string; // URL 경로에서 전달받은 참여자 ID
 }
 
-// 개별 학생용 대시보드 컴포넌트
+// 개별 참여자(수강생/학생)용 대시보드 컴포넌트 (STEP 16 범용화)
 export default function StudentDashboard({ studentId }: StudentDashboardProps) {
   const [data, setData] = useState<ClassFlowData | null>(null);
   const [student, setStudent] = useState<Student | null>(null);
@@ -44,11 +45,13 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
     }
   }, [studentId]);
 
+  const roleLabels = getRoleLabels(data?.settings);
+
   // 로딩 상태
   if (!data && !isNotFound) {
     return (
       <div className="flex-1 flex items-center justify-center p-12 text-slate-500 text-sm">
-        학생 정보를 불러오는 중입니다...
+        정보를 불러오는 중입니다...
       </div>
     );
   }
@@ -59,16 +62,16 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
       <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm text-center">
         <div className="text-4xl mb-4">🔍</div>
         <h2 className="text-xl font-bold text-slate-900 mb-2">
-          학생을 찾을 수 없습니다
+          {roleLabels.participant}을(를) 찾을 수 없습니다
         </h2>
         <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-          요청하신 학생 ID (<code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono text-xs">{studentId}</code>)는 존재하지 않습니다.
+          요청하신 {roleLabels.participant} ID (<code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono text-xs">{studentId}</code>)는 존재하지 않습니다.
         </p>
         <Link
           href="/student"
           className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
         >
-          ← 학생 선택으로 돌아가기
+          ← {roleLabels.participant} 선택으로 돌아가기
         </Link>
       </div>
     );
@@ -84,14 +87,14 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
           href="/student"
           className="text-xs font-semibold text-slate-600 hover:text-blue-600 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 transition-colors inline-flex items-center gap-1.5 shadow-2xs"
         >
-          ← 학생 다시 선택
+          ← {roleLabels.participant} 다시 선택
         </Link>
 
         <Link
           href="/teacher"
           className="text-xs font-semibold text-slate-600 hover:text-blue-600 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 transition-colors inline-flex items-center gap-1.5 shadow-2xs"
         >
-          교사 화면으로 이동 →
+          {roleLabels.instructor} 화면으로 이동 →
         </Link>
       </div>
 

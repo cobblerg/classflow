@@ -6,6 +6,7 @@ import {
   getCurrentClassData,
   resolveHelpRequest,
 } from "@/lib/tempStore";
+import { getRoleLabels } from "@/lib/roleLabels";
 import type {
   ClassFlowData,
   Student,
@@ -21,7 +22,7 @@ interface StudentDetailPanelProps {
   lessonId: string;
 }
 
-// 교사용 학생 상세 보기 메인 패널 컴포넌트 (STEP 11)
+// 교사/강사용 참여자 상세 보기 메인 패널 컴포넌트 (STEP 11, STEP 16 범용화)
 export default function StudentDetailPanel({
   studentId,
   lessonId,
@@ -41,6 +42,8 @@ export default function StudentDetailPanel({
     );
   }
 
+  const roleLabels = getRoleLabels(data.settings);
+
   // 1. 학생 및 차시 검색
   const student: Student | undefined = data.students.find((s) => s.id === studentId);
   const lesson: Lesson | undefined = data.lessons.find((l) => l.id === lessonId);
@@ -51,16 +54,16 @@ export default function StudentDetailPanel({
       <div className="w-full max-w-md mx-auto bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm text-center">
         <div className="text-4xl mb-3">🔍</div>
         <h2 className="text-xl font-bold text-slate-900 mb-2">
-          학생을 찾을 수 없습니다
+          {roleLabels.participant}을(를) 찾을 수 없습니다
         </h2>
         <p className="text-sm text-slate-500 mb-6">
-          요청하신 학생 ID (<code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs">{studentId}</code>)는 존재하지 않습니다.
+          요청하신 {roleLabels.participant} ID (<code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs">{studentId}</code>)는 존재하지 않습니다.
         </p>
         <Link
           href="/teacher"
           className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
         >
-          ← 교사 대시보드로 돌아가기
+          ← {roleLabels.instructor} 대시보드로 돌아가기
         </Link>
       </div>
     );
@@ -81,7 +84,7 @@ export default function StudentDetailPanel({
           href="/teacher"
           className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm"
         >
-          ← 교사 대시보드로 돌아가기
+          ← {roleLabels.instructor} 대시보드로 돌아가기
         </Link>
       </div>
     );
@@ -147,11 +150,11 @@ export default function StudentDetailPanel({
           href="/teacher"
           className="text-xs font-semibold text-slate-600 hover:text-blue-600 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 transition-colors inline-flex items-center gap-1.5 shadow-2xs"
         >
-          ← 교사 대시보드로 돌아가기
+          ← {roleLabels.instructor} 대시보드로 돌아가기
         </Link>
       </div>
 
-      {/* 2. 헤더: 학생 및 차시 정보 카드 */}
+      {/* 2. 헤더: 참여자 및 차시 정보 카드 */}
       <header className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm mb-6">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-blue-600">
@@ -160,7 +163,7 @@ export default function StudentDetailPanel({
             <span>{data.settings.className}</span>
           </div>
           <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-            교사용 학생 상세 보기
+            {roleLabels.instructor}용 {roleLabels.participant} 상세 보기
           </span>
         </div>
 
@@ -182,7 +185,7 @@ export default function StudentDetailPanel({
         {!lesson.published && (
           <div className="mt-4 p-3 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-600 flex items-center gap-1.5">
             <span>🔒</span>
-            <span>현재 학생에게 비공개인 차시입니다. (교사용 관리 목적으로 조회 중)</span>
+            <span>현재 {roleLabels.participant}에게 비공개인 차시입니다. ({roleLabels.instructor} 관리 목적으로 조회 중)</span>
           </div>
         )}
       </header>
@@ -192,7 +195,7 @@ export default function StudentDetailPanel({
         <h2 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
           <span className="text-xl">📊</span>
           <span>학습 상태 요약</span>
-          <span className="text-xs font-normal text-slate-400">(학생 자가 입력값)</span>
+          <span className="text-xs font-normal text-slate-400">({roleLabels.participant} 자가 입력값)</span>
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -347,11 +350,11 @@ export default function StudentDetailPanel({
         )}
       </section>
 
-      {/* 5. 학생 결과물(Submission) 섹션 (조회 전용, 요구사항 23번) */}
+      {/* 5. 참여자 결과물(Submission) 섹션 (조회 전용) */}
       <section className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm mb-5">
         <h2 className="text-base font-bold text-slate-900 mb-2 flex items-center gap-2">
           <span className="text-xl">📄</span>
-          <span>학생 결과물</span>
+          <span>{roleLabels.participant} 결과물</span>
         </h2>
         {submission?.content ? (
           <div className="text-xs sm:text-sm text-slate-700 whitespace-pre-line bg-slate-50 p-4 rounded-2xl border border-slate-100 leading-relaxed">
@@ -364,12 +367,13 @@ export default function StudentDetailPanel({
         )}
       </section>
 
-      {/* 6. 교사 피드백 섹션 (STEP 11) */}
+      {/* 6. 피드백 섹션 (STEP 11, STEP 16 범용화) */}
       <FeedbackEditor
         studentId={student.id}
         lessonId={lesson.id}
         existingFeedback={existingFeedback}
         onFeedbackSaved={handleFeedbackSaved}
+        roleLabels={roleLabels}
       />
     </div>
   );

@@ -33,6 +33,15 @@ export function getCurrentClassData(): ClassFlowData | null {
       inMemoryClassData = savedData;
     }
   }
+
+  // 이전 버전 데이터에서 roleLabels 누락 대비 (STEP 16)
+  if (inMemoryClassData && !inMemoryClassData.settings.roleLabels) {
+    inMemoryClassData.settings.roleLabels = {
+      instructor: "강사",
+      participant: "수강생",
+    };
+  }
+
   return inMemoryClassData;
 }
 
@@ -395,20 +404,44 @@ export function toggleLessonPublished(lessonId: string): boolean {
 
 /**
  * 학급 기본 설정 중 학급명(className)을 수정하는 함수 (STEP 12)
- * (학생 수와 차시 수는 데이터 보존을 위해 수정하지 않음)
+ * (하위 호환성 유지)
  */
 export function updateClassName(newClassName: string): boolean {
+  return updateClassSettings(newClassName);
+}
+
+/**
+ * 강의/학급 기본 설정 중 강의명(className) 및 역할 명칭(RoleLabels)을 수정하는 함수 (STEP 16)
+ * (참여자 목록이나 차시, 진행 상태 등의 기존 데이터는 안전하게 보존됨)
+ */
+export function updateClassSettings(
+  newClassName: string,
+  newRoleLabels?: { instructor: string; participant: string }
+): boolean {
   const current = getCurrentClassData();
   if (!current) return false;
 
-  const trimmed = newClassName.trim();
-  if (!trimmed) return false;
+  const trimmedName = newClassName.trim();
+  if (!trimmedName) return false;
+
+  const currentRoleLabels = current.settings.roleLabels || {
+    instructor: "강사",
+    participant: "수강생",
+  };
+
+  const updatedRoleLabels = newRoleLabels
+    ? {
+        instructor: newRoleLabels.instructor.trim() || currentRoleLabels.instructor,
+        participant: newRoleLabels.participant.trim() || currentRoleLabels.participant,
+      }
+    : currentRoleLabels;
 
   inMemoryClassData = {
     ...current,
     settings: {
       ...current.settings,
-      className: trimmed,
+      className: trimmedName,
+      roleLabels: updatedRoleLabels,
     },
   };
 

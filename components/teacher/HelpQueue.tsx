@@ -2,17 +2,25 @@
 
 import { useState } from "react";
 import type { HelpQueueItemType } from "@/lib/helpQueue";
+import type { RoleLabels } from "@/types";
+import { getJosa } from "@/lib/roleLabels";
 import HelpQueueItem from "./HelpQueueItem";
 
 interface HelpQueueProps {
   items: HelpQueueItemType[];
   onResolve: (helpRequestId: string) => void;
+  roleLabels?: RoleLabels;
 }
 
-// 교사 대시보드의 실시간 도움 요청 대기열(Help Queue) 패널 컴포넌트 (STEP 10, STEP 14 개선)
-export default function HelpQueue({ items, onResolve }: HelpQueueProps) {
+// 교사/강사 대시보드의 실시간 도움 요청 대기열(Help Queue) 패널 컴포넌트 (STEP 10, STEP 14, STEP 16 범용화)
+export default function HelpQueue({
+  items,
+  onResolve,
+  roleLabels = { instructor: "강사", participant: "수강생" },
+}: HelpQueueProps) {
   const [showAll, setShowAll] = useState(false);
   const directRequestCount = items.filter((i) => i.hasWaitingRequest).length;
+  const participantText = roleLabels.participant;
 
   // 처음에는 최대 5개만 표시하여 대기열이 Progress Grid를 과도하게 밀어내지 않도록 방지 (요구사항 #7)
   const INITIAL_LIMIT = 5;
@@ -26,7 +34,7 @@ export default function HelpQueue({ items, onResolve }: HelpQueueProps) {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xl" role="img" aria-label="경고 아이콘">🚨</span>
           <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-            도움이 필요한 학생
+            도움이 필요한 {participantText}
           </h2>
           <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
             총 {items.length}명
@@ -48,10 +56,10 @@ export default function HelpQueue({ items, onResolve }: HelpQueueProps) {
         <div className="py-5 px-4 text-center bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
           <span className="text-xl block mb-1">🎉</span>
           <p className="text-sm font-semibold text-slate-700 mb-0.5">
-            현재 도움을 기다리는 학생이 없습니다
+            현재 도움을 기다리는 {getJosa(participantText, "이/가")} 없습니다
           </p>
           <p className="text-xs text-slate-400">
-            모든 학생이 원활하게 수업 과제를 수행하고 있습니다.
+            모든 {getJosa(participantText, "이/가")} 원활하게 과제를 수행하고 있습니다.
           </p>
         </div>
       ) : (
@@ -61,6 +69,7 @@ export default function HelpQueue({ items, onResolve }: HelpQueueProps) {
               key={item.id}
               item={item}
               onResolve={onResolve}
+              roleLabels={roleLabels}
             />
           ))}
 

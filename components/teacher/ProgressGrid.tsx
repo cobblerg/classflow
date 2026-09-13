@@ -1,22 +1,25 @@
 "use client";
 
 import { useMemo } from "react";
-import type { Student, Lesson, Progress } from "@/types";
+import type { Student, Lesson, Progress, RoleLabels } from "@/types";
+import { getJosa } from "@/lib/roleLabels";
 import ProgressCell from "./ProgressCell";
 
 interface ProgressGridProps {
-  students: Student[];   // 학생 목록 (세로 행)
+  students: Student[];   // 참여자 목록 (세로 행)
   lessons: Lesson[];     // 차시 목록 (가로 열)
   progress: Progress[];  // 전체 진행 상태 데이터
   onToggleLesson?: (lessonId: string, currentPublished: boolean, title: string) => void;
+  roleLabels?: RoleLabels;
 }
 
-// 정보 밀도가 향상된 학생 × 차시 진행도 격자판(Progress Grid) 컴포넌트
+// 정보 밀도가 향상된 참여자 × 차시 진행도 격자판(Progress Grid) 컴포넌트 (STEP 16 범용화)
 export default function ProgressGrid({
   students,
   lessons,
   progress,
   onToggleLesson,
+  roleLabels = { instructor: "강사", participant: "수강생" },
 }: ProgressGridProps) {
   // 1. 빠른 조회를 위해 "학생ID_차시ID"를 키로 하는 Map 생성 (O(1) 조회)
   const progressMap = useMemo(() => {
@@ -68,18 +71,18 @@ export default function ProgressGrid({
       <div className="overflow-auto max-h-[620px] relative scrollbar-thin">
         <table className="w-full border-separate border-spacing-0 text-center select-none">
           <caption className="sr-only">
-            학생별 차시 진행 현황 및 이해도 그리드 표
+            {roleLabels.participant}별 차시 진행 현황 및 이해도 그리드 표
           </caption>
 
           {/* Header 영역 (차시 목록) */}
           <thead>
             <tr>
-              {/* 좌상단 학생 Header 코너 (가로·세로 모두 sticky 고정, 요구사항 #14) */}
+              {/* 좌상단 참여자 Header 코너 (가로·세로 모두 sticky 고정, 요구사항 #14, STEP 16 범용화) */}
               <th
                 scope="col"
                 className="sticky top-0 left-0 z-30 bg-slate-100 text-xs font-bold text-slate-700 py-2.5 px-3 min-w-[100px] sm:min-w-[120px] text-left border-b-2 border-r border-slate-200 shadow-[2px_2px_4px_rgba(0,0,0,0.04)]"
               >
-                학생 ({students.length}명)
+                {roleLabels.participant} ({students.length}명)
               </th>
 
               {/* 각 차시 헤더 셀 (세로 sticky top-0 고정, 요구사항 #13, #18, #34) */}
@@ -194,13 +197,13 @@ export default function ProgressGrid({
         </table>
       </div>
 
-      {/* 3. Grid 하단 안내 바 (요구사항 #17) */}
+      {/* 3. Grid 하단 안내 바 (요구사항 #17, STEP 16 범용화) */}
       <div className="bg-slate-50 px-4 py-2 border-t border-slate-200/70 text-[11px] text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-1.5">
         <span className="flex items-center gap-1">
-          <span>↔</span> 좌우 스크롤로 모든 차시를 확인하고, 상하 스크롤로 모든 학생을 확인할 수 있습니다.
+          <span>↔</span> 좌우 스크롤로 모든 차시를 확인하고, 상하 스크롤로 모든 {getJosa(roleLabels.participant, "을/를")} 확인할 수 있습니다.
         </span>
         <span className="text-slate-400 font-medium">
-          각 셀 클릭 시 해당 학생의 차시 상세 화면으로 이동합니다.
+          각 셀 클릭 시 해당 {roleLabels.participant}의 차시 상세 화면으로 이동합니다.
         </span>
       </div>
     </div>

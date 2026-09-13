@@ -19,40 +19,40 @@ export default function HomePage() {
 
         {/* 슬로건 */}
         <p className="text-lg sm:text-xl font-medium text-slate-600 mb-8">
-          학생의 배움이 보이는 교실
+          배움과 성장이 보이는 학습 공간
         </p>
 
         {/* 서비스 핵심 설명 */}
         <div className="bg-slate-50 rounded-2xl p-5 mb-8 text-left border border-slate-100">
           <p className="text-sm text-slate-600 leading-relaxed">
-            학생별 학습 진행도와 실시간 도움 요청을 한 화면에서 직관적으로 확인하고, 적시에 피드백을 전달할 수 있습니다.
+            참여자별 학습 진행도와 실시간 도움 요청을 한 화면에서 직관적으로 확인하고, 적시에 개별 피드백을 전달할 수 있습니다.
           </p>
         </div>
 
         {/* 액션 버튼 영역 */}
         <div className="flex flex-col gap-3">
-          {/* 새 수업 만들기 버튼 */}
+          {/* 새 강의 만들기 버튼 */}
           <Link
             href="/setup"
             className="w-full inline-flex items-center justify-center px-6 py-4 rounded-xl text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.99] transition-all shadow-md shadow-blue-500/20"
           >
-            새 수업 만들기
+            새 강의 만들기
           </Link>
 
-          {/* 학생 화면 이동 버튼 */}
+          {/* 학습자 화면 이동 버튼 */}
           <Link
             href="/student"
             className="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 active:scale-[0.99] transition-all"
           >
-            👥 학생 화면 (테스트 모드)
+            👥 수강생 / 학생 화면
           </Link>
 
-          {/* 교사 대시보드 바로가기 버튼 */}
+          {/* 대시보드 바로가기 버튼 */}
           <Link
             href="/teacher"
             className="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/60 active:scale-[0.99] transition-all"
           >
-            📊 교사 대시보드 보기
+            📊 강사 / 교사 대시보드
           </Link>
         </div>
 

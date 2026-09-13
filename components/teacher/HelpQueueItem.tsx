@@ -3,14 +3,20 @@
 import Link from "next/link";
 import type { HelpQueueItemType } from "@/lib/helpQueue";
 import { formatRelativeTime } from "@/lib/helpQueue";
+import type { RoleLabels } from "@/types";
 
 interface HelpQueueItemProps {
   item: HelpQueueItemType;
   onResolve: (helpRequestId: string) => void;
+  roleLabels?: RoleLabels;
 }
 
-// 교사 대시보드 도움 요청 대기열의 개별 학생 카드 컴포넌트 (STEP 10)
-export default function HelpQueueItem({ item, onResolve }: HelpQueueItemProps) {
+// 교사/강사 대시보드 도움 요청 대기열의 개별 학생/수강생 카드 컴포넌트 (STEP 10, STEP 16 범용화)
+export default function HelpQueueItem({
+  item,
+  onResolve,
+  roleLabels = { instructor: "강사", participant: "수강생" },
+}: HelpQueueItemProps) {
   // 도움 완료 클릭 핸들러
   const handleResolveClick = () => {
     if (!item.helpRequestId) return;
@@ -91,13 +97,13 @@ export default function HelpQueueItem({ item, onResolve }: HelpQueueItemProps) {
 
         {/* 우측: 액션 버튼 ([학생 보기], [도움 완료]) */}
         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-          {/* 학생 상세 화면 이동 버튼 (교사용 상세 Route 연결, STEP 11) */}
+          {/* 학생/수강생 상세 화면 이동 버튼 (상세 Route 연결, STEP 11, STEP 16 범용화) */}
           <Link
             href={`/teacher/student/${item.studentId}/lesson/${item.lessonId}`}
-            className="inline-flex items-center justify-center px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200/80 active:scale-[0.98] transition-all shadow-2xs"
-            title="해당 학생의 교사용 상세 화면으로 이동합니다"
+            className="inline-flex items-center justify-center px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200/80 active:scale-[0.98] transition-all shadow-2xs cursor-pointer"
+            title={`해당 ${roleLabels.participant}의 상세 화면으로 이동합니다`}
           >
-            학생 보기 →
+            {roleLabels.participant} 보기 →
           </Link>
 
           {/* 도움 완료 버튼: 직접 도움 요청(waiting)이 있는 경우에만 표시 (요구사항 14, 18번 준수) */}
