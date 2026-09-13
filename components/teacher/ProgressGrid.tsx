@@ -8,6 +8,7 @@ interface ProgressGridProps {
   students: Student[];   // 학생 목록 (세로 행)
   lessons: Lesson[];     // 차시 목록 (가로 열)
   progress: Progress[];  // 전체 진행 상태 데이터
+  onToggleLesson?: (lessonId: string, currentPublished: boolean, title: string) => void;
 }
 
 // 정보 밀도가 향상된 학생 × 차시 진행도 격자판(Progress Grid) 컴포넌트
@@ -15,6 +16,7 @@ export default function ProgressGrid({
   students,
   lessons,
   progress,
+  onToggleLesson,
 }: ProgressGridProps) {
   // 1. 빠른 조회를 위해 "학생ID_차시ID"를 키로 하는 Map 생성 (O(1) 조회)
   const progressMap = useMemo(() => {
@@ -52,16 +54,37 @@ export default function ProgressGrid({
                     <span className="text-xs font-semibold text-slate-800 tracking-tight">
                       {lesson.title}
                     </span>
-                    <span
-                      className={`text-[9px] font-normal px-1 py-0.2 rounded leading-tight ${
-                        lesson.published
-                          ? "text-emerald-700 bg-emerald-50 border border-emerald-200/80"
-                          : "text-slate-400 bg-slate-200/60"
-                      }`}
-                      title={lesson.published ? "공개된 차시" : "비공개 차시"}
-                    >
-                      {lesson.published ? "🔓공개" : "🔒비공개"}
-                    </span>
+                    {onToggleLesson ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onToggleLesson(
+                            lesson.id,
+                            lesson.published,
+                            `${lesson.number}차시 (${lesson.title})`
+                          )
+                        }
+                        className={`text-[9px] font-semibold px-1.5 py-0.5 rounded leading-tight transition-all active:scale-95 cursor-pointer ${
+                          lesson.published
+                            ? "text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300"
+                            : "text-slate-600 bg-slate-200 hover:bg-slate-300 border border-slate-300"
+                        }`}
+                        title={`클릭하여 ${lesson.published ? "비공개로" : "공개로"} 전환`}
+                      >
+                        {lesson.published ? "🔓공개" : "🔒비공개"}
+                      </button>
+                    ) : (
+                      <span
+                        className={`text-[9px] font-normal px-1 py-0.2 rounded leading-tight ${
+                          lesson.published
+                            ? "text-emerald-700 bg-emerald-50 border border-emerald-200/80"
+                            : "text-slate-400 bg-slate-200/60"
+                        }`}
+                        title={lesson.published ? "공개된 차시" : "비공개 차시"}
+                      >
+                        {lesson.published ? "🔓공개" : "🔒비공개"}
+                      </span>
+                    )}
                   </div>
                 </th>
               ))}

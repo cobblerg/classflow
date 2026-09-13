@@ -361,6 +361,64 @@ export function saveFeedback(
 }
 
 /**
+ * 특정 차시의 학생 공개 여부(published)를 토글(true ↔ false)하는 함수 (STEP 12)
+ * ※ 주의: 비공개로 변경하더라도 학생의 Progress, HelpRequest, Feedback 데이터는 절대 삭제되지 않습니다.
+ */
+export function toggleLessonPublished(lessonId: string): boolean {
+  const current = getCurrentClassData();
+  if (!current) return false;
+
+  let matched = false;
+  const updatedLessons = current.lessons.map((lesson) => {
+    if (lesson.id === lessonId) {
+      matched = true;
+      return {
+        ...lesson,
+        published: !lesson.published,
+      };
+    }
+    return lesson;
+  });
+
+  if (!matched) return false;
+
+  inMemoryClassData = {
+    ...current,
+    lessons: updatedLessons,
+  };
+
+  // localStorage에 변경 상태 즉시 영속화
+  saveClassFlowData(inMemoryClassData);
+
+  return true;
+}
+
+/**
+ * 학급 기본 설정 중 학급명(className)을 수정하는 함수 (STEP 12)
+ * (학생 수와 차시 수는 데이터 보존을 위해 수정하지 않음)
+ */
+export function updateClassName(newClassName: string): boolean {
+  const current = getCurrentClassData();
+  if (!current) return false;
+
+  const trimmed = newClassName.trim();
+  if (!trimmed) return false;
+
+  inMemoryClassData = {
+    ...current,
+    settings: {
+      ...current.settings,
+      className: trimmed,
+    },
+  };
+
+  // localStorage에 변경 상태 즉시 영속화
+  saveClassFlowData(inMemoryClassData);
+
+  return true;
+}
+
+/**
  * 메모리와 브라우저 localStorage의 모든 ClassFlow 데이터를 완전히 초기화하는 함수
  */
 export function clearCurrentClassData(): void {

@@ -5,11 +5,14 @@ import {
   getCurrentClassData,
   setCurrentClassData,
   resolveHelpRequest,
+  toggleLessonPublished,
 } from "@/lib/tempStore";
 import { createClassData } from "@/lib/createClassData";
 import { buildHelpQueue } from "@/lib/helpQueue";
 import type { ClassFlowData } from "@/types";
 import DashboardSummary from "./DashboardSummary";
+import ClassSettingsPanel from "./ClassSettingsPanel";
+import LessonVisibilityManager from "./LessonVisibilityManager";
 import HelpQueue from "./HelpQueue";
 import ProgressGrid from "./ProgressGrid";
 
@@ -47,6 +50,33 @@ export default function TeacherDashboard() {
     }
   };
 
+  // 차시 공개/비공개 토글 핸들러 (STEP 12)
+  const handleToggleLesson = (lessonId: string, currentPublished: boolean, title: string) => {
+    // 공개 ➡️ 비공개 전환 시 교사 실수 방지 확인 다이얼로그 (요구사항 14번)
+    if (currentPublished) {
+      const confirmed = window.confirm(
+        `'${title}'를 비공개로 변경할까요?\n\n학생은 더 이상 이 차시에 접근할 수 없습니다.\n(기존 진행 데이터와 피드백은 안전하게 보존됩니다.)`
+      );
+      if (!confirmed) return;
+    }
+
+    const success = toggleLessonPublished(lessonId);
+    if (success) {
+      const latest = getCurrentClassData();
+      if (latest) {
+        setData(latest);
+      }
+    }
+  };
+
+  // 학급 기본 설정 갱신 핸들러 (STEP 12)
+  const handleSettingsUpdated = () => {
+    const latest = getCurrentClassData();
+    if (latest) {
+      setData(latest);
+    }
+  };
+
   if (!data) {
     return (
       <div className="flex-1 flex items-center justify-center p-12 text-slate-500 text-sm">
@@ -65,17 +95,30 @@ export default function TeacherDashboard() {
       {/* 1. 상단 요약 헤더 */}
       <DashboardSummary settings={settings} />
 
-      {/* 2. 실시간 도움 요청 대기열 (Help Queue, STEP 10) */}
+      {/* 2. 학급 기본 설정 패널 (수업명 수정 등, STEP 12) */}
+      <ClassSettingsPanel
+        settings={settings}
+        onSettingsUpdated={handleSettingsUpdated}
+      />
+
+      {/* 3. 차시 공개 관리 패널 (공개/비공개 토글, STEP 12) */}
+      <LessonVisibilityManager
+        lessons={lessons}
+        onToggleLesson={handleToggleLesson}
+      />
+
+      {/* 4. 실시간 도움 요청 대기열 (Help Queue, STEP 10) */}
       <HelpQueue
         items={helpQueueItems}
         onResolve={handleResolveHelp}
       />
 
-      {/* 3. 학생 × 차시 진행도 격자판 (Progress Grid) */}
+      {/* 5. 학생 × 차시 진행도 격자판 (Progress Grid) */}
       <ProgressGrid
         students={students}
         lessons={lessons}
         progress={progress}
+        onToggleLesson={handleToggleLesson}
       />
     </div>
   );

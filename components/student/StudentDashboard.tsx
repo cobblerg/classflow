@@ -122,6 +122,19 @@ export default function StudentDashboard({ studentId }: StudentDashboardProps) {
           </span>
         </div>
 
+        {/* 모든 차시가 비공개인 경우 안내 (STEP 12, Test I) */}
+        {lessons.filter((l) => l.published).length === 0 && (
+          <div className="py-10 px-6 text-center bg-white rounded-3xl border border-dashed border-amber-300 bg-amber-50/40 shadow-xs mb-2">
+            <span className="text-3xl block mb-2">🔒</span>
+            <h3 className="text-base font-bold text-slate-900 mb-1">
+              현재 공개된 차시가 없습니다
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-500">
+              선생님이 차시를 공개하면 이곳에서 과제를 확인하고 학습할 수 있습니다.
+            </p>
+          </div>
+        )}
+
         {/* 차시 카드 렌더링 */}
         {lessons.map((lesson) => {
           // 해당 학생과 차시에 해당하는 진행 상태 매칭
